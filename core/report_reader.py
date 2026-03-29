@@ -114,8 +114,9 @@ def load_fubiao1(file_path: str) -> Tuple[List[Dict], List[str], Dict]:
     header_df = df.iloc[:data_start_row]
     data_df = df.iloc[data_start_row:].copy()
 
-    # 只对列1-4（县名、县代码、乡镇名、乡镇代码）填充合并单元格
-    for col in [1, 2, 3, 4]:
+    # 对列0-10（序号、县名、县代码、乡镇名、乡镇代码、名称、代码、类型、人口、河流名称、河流代码）填充合并单元格
+    # 这些是防治对象的基础信息和唯一标识字段
+    for col in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
         if col < len(data_df.columns):
             data_df.iloc[:, col] = data_df.iloc[:, col].ffill()
 

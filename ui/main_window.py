@@ -16,6 +16,7 @@ from PySide6.QtCore import Qt, QThread, Signal, Slot, QSize
 from PySide6.QtGui import QColor, QFont, QIcon
 from core.checker import WaterSystemChecker
 from ui.report_page import ReportPage
+from ui.shp_formatter_page import ShpFormatterPage
 from datetime import datetime
 
 
@@ -38,12 +39,14 @@ QLabel#sidebarTitle {
     font-weight: bold;
     color: white;
     padding: 20px 15px 10px 15px;
+    qproperty-alignment: AlignCenter;
 }
 
 QLabel#sidebarSubtitle {
     font-size: 11px;
     color: #95a5a6;
     padding: 0 15px 20px 15px;
+    qproperty-alignment: AlignCenter;
 }
 
 /* 侧边栏导航按钮 */
@@ -426,7 +429,7 @@ class MainWindow(QWidget):
         self.water_system_shp = ""
         self.check_thread = None
         self.check_results = None
-        self.log_visible = True
+        self.log_visible = False  # 日志窗口默认隐藏
         self.original_detail_data = []
         self.original_duanmian_data = []
         self.original_fangzhi_data = []
@@ -438,7 +441,7 @@ class MainWindow(QWidget):
         self.init_ui()
 
     def init_ui(self):
-        self.setWindowTitle("青海空间数据工具")
+        self.setWindowTitle("风险隐患调查与影响分析成果审核小工具")
         self.setMinimumSize(1200, 800)
         self.setStyleSheet(STYLE_SHEET)
 
@@ -456,12 +459,14 @@ class MainWindow(QWidget):
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
 
         # 标题区域
-        self.title_label = QLabel("⚡ 青海水文")
+        self.title_label = QLabel("🌏 审核汇集")
         self.title_label.setObjectName("sidebarTitle")
+        self.title_label.setAlignment(Qt.AlignCenter)
         sidebar_layout.addWidget(self.title_label)
 
-        self.subtitle_label = QLabel("空间数据处理工具")
+        self.subtitle_label = QLabel("风险隐患调查成果审核工具")
         self.subtitle_label.setObjectName("sidebarSubtitle")
+        self.subtitle_label.setAlignment(Qt.AlignCenter)
         sidebar_layout.addWidget(self.subtitle_label)
 
         # 分隔线
@@ -484,6 +489,12 @@ class MainWindow(QWidget):
         self.nav_report_btn.clicked.connect(lambda: self.switch_page(1))
         sidebar_layout.addWidget(self.nav_report_btn)
 
+        self.nav_format_btn = QPushButton("🛠️  SHP属性格式化")
+        self.nav_format_btn.setObjectName("sidebarBtn")
+        self.nav_format_btn.setCheckable(True)
+        self.nav_format_btn.clicked.connect(lambda: self.switch_page(2))
+        sidebar_layout.addWidget(self.nav_format_btn)
+
         # 弹性空间
         sidebar_layout.addStretch()
 
@@ -498,7 +509,7 @@ class MainWindow(QWidget):
         bottom_layout.addWidget(self.collapse_btn)
 
         # 版本信息
-        self.version_label = QLabel("Version 1.0.0")
+        self.version_label = QLabel("Version 1.1.0")
         self.version_label.setObjectName("sidebarVersion")
         bottom_layout.addWidget(self.version_label)
 
@@ -524,6 +535,23 @@ class MainWindow(QWidget):
         check_layout.setContentsMargins(0, 0, 0, 0)
 
         config_group = QGroupBox("检查配置")
+        config_group.setStyleSheet("""
+            QGroupBox {
+                background-color: white;
+                border: 1px solid #e0e4e8;
+                border-radius: 10px;
+                margin-top: 12px;
+                padding: 15px;
+                font-weight: bold;
+                color: #34495e;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 0 10px;
+                color: #6b7d9e;
+            }
+        """)
         config_layout = QVBoxLayout()
         config_layout.setSpacing(12)
 
@@ -559,9 +587,7 @@ class MainWindow(QWidget):
         water_layout.addWidget(water_btn, 0, Qt.AlignRight)
         config_layout.addLayout(water_layout)
 
-        config_group.setLayout(config_layout)
-        check_layout.addWidget(config_group)
-
+        # 按钮行移入容器
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(15)
         btn_layout.addStretch()
@@ -578,7 +604,7 @@ class MainWindow(QWidget):
         self.clear_btn.setObjectName("clearBtn")
         self.clear_btn.clicked.connect(self.clear_results)
         self.clear_btn.setFixedWidth(80)
-        self.log_toggle_btn = QPushButton("隐藏日志")
+        self.log_toggle_btn = QPushButton("显示日志")
         self.log_toggle_btn.setObjectName("logToggleBtn")
         self.log_toggle_btn.setFixedWidth(100)
         self.log_toggle_btn.clicked.connect(self.toggle_log)
@@ -587,7 +613,10 @@ class MainWindow(QWidget):
         btn_layout.addWidget(self.clear_btn)
         btn_layout.addWidget(self.log_toggle_btn)
         btn_layout.addStretch()
-        check_layout.addLayout(btn_layout)
+        config_layout.addLayout(btn_layout)
+
+        config_group.setLayout(config_layout)
+        check_layout.addWidget(config_group)
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
@@ -619,6 +648,10 @@ class MainWindow(QWidget):
         self.page_report = ReportPage()
         self.page_stack.addWidget(self.page_report)
 
+        # --- 页面3：SHP属性格式化 ---
+        self.page_format = ShpFormatterPage()
+        self.page_stack.addWidget(self.page_format)
+
         content_layout.addWidget(self.page_stack, 1)
         content_frame.setLayout(content_layout)
         main_layout.addWidget(content_frame, 1)
@@ -630,6 +663,7 @@ class MainWindow(QWidget):
         self.page_stack.setCurrentIndex(index)
         self.nav_check_btn.setChecked(index == 0)
         self.nav_report_btn.setChecked(index == 1)
+        self.nav_format_btn.setChecked(index == 2)
 
     def toggle_sidebar(self):
         """切换侧边栏折叠状态"""
@@ -648,6 +682,7 @@ class MainWindow(QWidget):
             # 按钮只显示图标
             self.nav_check_btn.setText("🔍")
             self.nav_report_btn.setText("📊")
+            self.nav_format_btn.setText("🛠️")
 
             # 折叠按钮 - 只显示箭头，居中
             self.collapse_btn.setText("▶")
@@ -671,6 +706,7 @@ class MainWindow(QWidget):
             # 按钮显示完整文字
             self.nav_check_btn.setText("🔍  空间数据检查")
             self.nav_report_btn.setText("📊  成果报表展示")
+            self.nav_format_btn.setText("🛠️  SHP属性格式化")
 
             # 折叠按钮
             self.collapse_btn.setText("◀  收起侧栏")

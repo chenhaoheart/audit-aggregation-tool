@@ -14,8 +14,8 @@ from ui.main_window import MainWindow
 
 def main():
     app = QApplication(sys.argv)
-    app.setApplicationName("青海空间数据检查工具")
-    app.setOrganizationName("青海水文")
+    app.setApplicationName("风险隐患调查与影响分析成果审核小工具")
+    app.setOrganizationName("审核汇集")
 
     window = MainWindow()
     window.show()
