@@ -1,18 +1,14 @@
-# -*- mode: python ; coding: utf-8 -*-
 """
-PyInstaller 打包配置文件
-使用方法: pyinstaller build.spec
+PyInstaller 打包配置文件 - Onedir 模式（开发调试用）
+使用方法: pyinstaller build_onedir.spec
 """
-
 import sys
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files
 from datetime import datetime
 
-# 版本日期
 VERSION_DATE = datetime.now().strftime("%Y%m%d")
 
-# 收集所有子模块（动态收集，避免硬编码不存在的模块）
 numpy_hiddenimports = collect_submodules('numpy')
 fiona_hiddenimports = collect_submodules('fiona')
 geopandas_hiddenimports = collect_submodules('geopandas')
@@ -20,100 +16,62 @@ shapely_hiddenimports = collect_submodules('shapely')
 pyproj_hiddenimports = collect_submodules('pyproj')
 pandas_hiddenimports = collect_submodules('pandas')
 
-# 收集数据文件
 numpy_data_files = collect_data_files('numpy')
 geopandas_data_files = collect_data_files('geopandas')
 shapely_data_files = collect_data_files('shapely')
 fiona_data_files = collect_data_files('fiona')
 pyproj_data_files = collect_data_files('pyproj')
 
-# pyogrio 数据文件（重要！）
-pyogrio_data_files = []
-pyogrio_hiddenimports = []
-try:
-    pyogrio_data_files = collect_data_files('pyogrio')
-    pyogrio_hiddenimports = collect_submodules('pyogrio')
-except Exception:
-    pass
-
-# 项目根目录
 PROJECT_ROOT = Path(SPECPATH)
-
-# Runtime hook 文件路径
 RUNTIME_HOOK_PATH = PROJECT_ROOT / 'hooks' / 'runtime_hook_encoding.py'
 
-# 分析入口文件
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
     datas=[
-        # 所有库的数据文件
         *numpy_data_files,
         *geopandas_data_files,
         *shapely_data_files,
         *fiona_data_files,
         *pyproj_data_files,
-        *pyogrio_data_files,
-        # 项目资源文件
-        ('scripts', 'scripts'),  # ArcGIS处理脚本
-        ('config', 'config'),    # 配置文件
+        ('scripts', 'scripts'),
+        ('config', 'config'),
     ],
     hiddenimports=[
-        # PySide6 核心
         'PySide6.QtCore',
         'PySide6.QtGui',
         'PySide6.QtWidgets',
         'PySide6.QtNetwork',
-        # 动态收集的所有子模块
         *numpy_hiddenimports,
         *fiona_hiddenimports,
         *geopandas_hiddenimports,
         *shapely_hiddenimports,
         *pyproj_hiddenimports,
         *pandas_hiddenimports,
-        *pyogrio_hiddenimports,
-        # Excel 处理
         'openpyxl',
         'openpyxl.cell',
         'openpyxl.worksheet',
         'xlrd',
-        # 编码处理（确保打包后能正确处理中文）
         'codecs',
         'encodings',
         'encodings.gb18030',
         'encodings.gbk',
         'encodings.gb2312',
-        'encodings.cp936',
         'encodings.utf_8',
         'encodings.latin_1',
         'encodings.iso8859_1',
-        # Fiona 驱动和编码
         'fiona.drvsupport',
-        'fiona._drivers',
         'fiona.schema',
         'fiona.errors',
         'fiona.crs',
         'fiona.collection',
-        'fiona._env',
-        # pyogrio (geopandas 新版默认引擎)
-        'pyogrio',
-        'pyogrio.raw',
-        'pyogrio.geopandas',
-        'pyogrio._io',
-        'pyogrio._version',
-        # DBF 备用读取库
-        'dbfread',
-        'dbfread.read',
-        'shapefile',
-        # 其他
         'tqdm',
     ],
     hookspath=['hooks'],
     hooksconfig={},
-    runtime_hooks=[str(RUNTIME_HOOK_PATH)],  # 添加编码修复的 runtime hook
+    runtime_hooks=[str(RUNTIME_HOOK_PATH)],
     excludes=[
-        # 排除不需要的模块，减小体积
         'tkinter',
         'matplotlib',
         'scipy',
@@ -133,45 +91,36 @@ a = Analysis(
     noarchive=False,
 )
 
-# 过滤不必要的二进制文件
-filtered_binaries = []
-for binary in a.binaries:
-    path = binary[0].lower()
-    # numpy/_core 下的 pyd 文件是核心运行时模块，不过滤
-    if 'numpy\\_core' in path or 'numpy/_core' in path:
-        filtered_binaries.append(binary)
-        continue
-    # 排除测试文件、调试文件和不必要的 DLL
-    exclude_patterns = ['debug', 'tests', 'pytest', 'qt6qml', 'qt6quick']
-    if any(pattern in path for pattern in exclude_patterns):
-        continue
-    filtered_binaries.append(binary)
-a.binaries = filtered_binaries
+pyz = PYZ(a.pure, a.zipped_data, cipher=None)
 
-# 过滤不必要的数据文件
-filtered_datas = []
-for data in a.datas:
-    path = data[0].lower()
-    exclude_patterns = ['test', 'tests', 'examples', 'sample', 'doc', 'docs']
-    if any(pattern in path for pattern in exclude_patterns):
-        continue
-    filtered_datas.append(data)
-a.datas = filtered_datas
-
-# PYZ 压缩包
-pyz = PYZ(
-    a.pure,
-    a.zipped_data,
-    cipher=None,
-)
-
-# 检查图标文件是否存在
 icon_path = PROJECT_ROOT / 'assets' / 'icon.ico'
 icon_str = str(icon_path) if icon_path.exists() else None
 
-# 可执行文件配置
 exe = EXE(
     pyz,
+    a.scripts,
+    a.binaries,
+    a.datas,
+    [],
+    name=f'空间数据检查工具_v1.3.0_{VERSION_DATE}',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon=icon_str,
+)
+
+# Onedir 模式使用 COLLECT
+coll = COLLECT(
+    exe,
     a.scripts,
     a.binaries,
     a.datas,

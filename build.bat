@@ -60,16 +60,16 @@ pyinstaller build.spec
 :: 检查打包结果
 echo.
 echo [步骤 3/3] 检查打包结果...
-if exist "dist\空间数据检查工具.exe" (
+if exist "dist\空间数据检查工具_v2.0.0.exe" (
     :: 获取文件大小
-    for %%A in ("dist\空间数据检查工具.exe") do set SIZE=%%~zA
+    for %%A in ("dist\空间数据检查工具_v2.0.0.exe") do set SIZE=%%~zA
     set /a SIZE_MB=!SIZE! / 1048576
 
     echo.
     echo ╔════════════════════════════════════════════════════════════╗
     echo ║                    打包成功！                              ║
     echo ╠════════════════════════════════════════════════════════════╣
-    echo ║  输出文件: dist\空间数据检查工具.exe                       ║
+    echo ║  输出文件: dist\空间数据检查工具_v2.0.0.exe                 ║
     echo ║  文件大小: !SIZE_MB! MB                                    ║
     echo ╚════════════════════════════════════════════════════════════╝
     echo.

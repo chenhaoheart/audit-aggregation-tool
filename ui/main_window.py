@@ -509,7 +509,7 @@ class MainWindow(QWidget):
         bottom_layout.addWidget(self.collapse_btn)
 
         # 版本信息
-        self.version_label = QLabel("Version 1.1.0")
+        self.version_label = QLabel("Version 1.3.0")
         self.version_label.setObjectName("sidebarVersion")
         bottom_layout.addWidget(self.version_label)
 
@@ -1263,13 +1263,14 @@ class MainWindow(QWidget):
     def update_water_table(self, water_records):
         self.water_table.setRowCount(len(water_records))
         for row, record in enumerate(water_records):
+            # 顺序与表头一致：记录序号、河流代码、河流名称、河流代码是否为17位、错误信息、验证状态
             items = [
                 str(record.get('记录序号', '')),
                 record.get('河流代码', ''),
                 record.get('河流名称', ''),
                 record.get('河流代码是否为17位', ''),
-                record.get('验证状态', ''),
-                record.get('错误信息', '')
+                record.get('错误信息', ''),
+                record.get('验证状态', '')
             ]
             for col, text in enumerate(items):
                 item = QTableWidgetItem(str(text))

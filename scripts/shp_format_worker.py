@@ -357,18 +357,49 @@ def copy_original(in_fc, out_fc, rule_name):
 def process_folder(input_root, output_root, rules):
     """
     处理整个文件夹 - 批量循环查询生成新的统一命名shp文件
+    支持两种模式：
+    1. 输入目录包含子文件夹（流域），遍历子文件夹处理
+    2. 输入目录直接包含SHP文件，直接处理当前目录
     """
     makedirs_safe(output_root)
     results = []
 
-    # 遍历输入目录下的所有子文件夹
-    for basin in os.listdir(input_root):
-        basin_path = os.path.join(input_root, basin)
-        if not os.path.isdir(basin_path):
-            continue
+    # 检查输入目录下是否有子文件夹
+    subdirs = []
+    has_shp_in_root = False
 
-        # 将文件名转换为 unicode
-        basin_u = to_unicode(basin)
+    for item in os.listdir(input_root):
+        item_path = os.path.join(input_root, item)
+        if os.path.isdir(item_path):
+            # 排除 output 和 temp 目录
+            item_u = to_unicode(item).lower()
+            if 'output' not in item_u and 'temp' not in item_u:
+                subdirs.append(item)
+        elif item.lower().endswith('.shp'):
+            has_shp_in_root = True
+
+    # 决定处理模式
+    if subdirs:
+        # 模式1：遍历子文件夹
+        log(u"检测到子目录模式，遍历处理...")
+        process_items = subdirs
+    elif has_shp_in_root:
+        # 模式2：直接处理当前目录
+        log(u"检测到直接SHP模式，处理当前目录...")
+        process_items = [u'']  # 空字符串表示直接使用输入目录
+    else:
+        log(u"未找到可处理的SHP文件或子目录")
+        return results
+
+    # 遍历处理
+    for basin in process_items:
+        if basin:
+            basin_path = os.path.join(input_root, basin)
+            basin_u = to_unicode(basin)
+        else:
+            basin_path = input_root
+            basin_u = to_unicode(os.path.basename(input_root))
+
         log(u"\n--- 处理: " + basin_u + u" ---")
 
         # 遍历每个规则
@@ -388,7 +419,10 @@ def process_folder(input_root, output_root, rules):
                 log(u"    找到 " + unicode(len(src_files)) + u" 个文件，使用: " + to_unicode(os.path.basename(src_file)))
 
             # 输出路径
-            out_basin_dir = os.path.join(output_root, basin, u'空间数据')
+            if basin:
+                out_basin_dir = os.path.join(output_root, basin, u'空间数据')
+            else:
+                out_basin_dir = output_root
             makedirs_safe(out_basin_dir)
             out_file = os.path.join(out_basin_dir, output_name)
 

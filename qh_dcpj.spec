@@ -5,14 +5,19 @@ PyInstaller 打包配置文件
 
 import sys
 import os
+from datetime import datetime
 
+VERSION_DATE = datetime.now().strftime("%Y%m%d")
 block_cipher = None
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[
+        ('config', 'config'),
+        ('scripts', 'scripts'),
+    ],
     hiddenimports=[
         'PySide6',
         'PySide6.QtCore',
@@ -23,8 +28,14 @@ a = Analysis(
         'openpyxl',
         'tqdm',
         'fiona',
+        'fiona.drvsupport',
         'pyproj',
         'shapely',
+        # 编码处理
+        'encodings.gb18030',
+        'encodings.gbk',
+        'encodings.gb2312',
+        'encodings.cp936',
     ],
     hookspath=[],
     hooksconfig={},
@@ -47,12 +58,12 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='青海空间数据检查工具',
+    name=f'空间数据检查工具_{VERSION_DATE}',
     debug=False,
     bootloader_ignore_signals=False,
     strip=True,
     upx=True,
-    console=False,
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -68,5 +79,5 @@ coll = COLLECT(
     strip=True,
     upx=True,
     upx_exclude=[],
-    name='青海空间数据检查工具',
+    name=f'空间数据检查工具_{VERSION_DATE}',
 )

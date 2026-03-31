@@ -42,41 +42,107 @@ class WaterSystemChecker:
 
         try:
             gdf = None
-            encodings_to_try = ['utf-8', 'gbk', 'gb2312', 'gb18030', 'cp936', 'latin1', 'iso-8859-1']
+            used_encoding = None
+
+            # 尝试所有常见编码，选择能读取最多有效数据的编码
+            # 中文 DBF 通常用 GBK，但有些可能用 UTF-8
+            encodings_to_try = ['gbk', 'gb18030', 'utf-8', 'cp936', 'gb2312', 'latin1']
+
+            self.emit_progress("尝试不同编码读取水系文件...")
+
+            best_encoding = None
+            best_non_none_count = -1
+            best_gdf = None
+            rvnm_col_name = None
+
             for encoding in encodings_to_try:
                 try:
-                    gdf = gpd.read_file(self.water_system_shp, encoding=encoding)
-                    gdf.columns = [str(col) for col in gdf.columns]
-                    break
-                except:
-                    continue
+                    test_gdf = gpd.read_file(self.water_system_shp, encoding=encoding)
+                    test_gdf.columns = [str(col) for col in test_gdf.columns]
 
-            if gdf is None:
+                    # 查找 RVNM 字段
+                    rvnm_col = None
+                    for col in test_gdf.columns:
+                        if col.lower() in ['rvnm', 'rvname', '河流名称']:
+                            rvnm_col = col
+                            break
+
+                    if rvnm_col:
+                        non_none_count = test_gdf[rvnm_col].notna().sum()
+                        self.emit_progress(f"  编码 {encoding}: RVNM 非空记录数 = {non_none_count}")
+
+                        # 选择非空数最多的编码
+                        if non_none_count > best_non_none_count:
+                            best_non_none_count = non_none_count
+                            best_encoding = encoding
+                            best_gdf = test_gdf
+                            rvnm_col_name = rvnm_col
+                    else:
+                        self.emit_progress(f"  编码 {encoding}: 未找到 RVNM 字段")
+                except Exception as e:
+                    self.emit_progress(f"  编码 {encoding} 读取失败: {str(e)[:50]}")
+
+            # 使用最佳编码的结果
+            if best_gdf is not None and best_non_none_count >= 0:
+                gdf = best_gdf
+                used_encoding = best_encoding
+                self.emit_progress(f"✓ 使用编码: {used_encoding} (RVNM 非空数: {best_non_none_count})")
+            else:
+                # 兜底：不指定编码
+                self.emit_progress("  使用默认编码...")
                 gdf = gpd.read_file(self.water_system_shp)
+                gdf.columns = [str(col) for col in gdf.columns]
+                used_encoding = 'default'
 
             self.emit_progress(f"水系记录数：{len(gdf)}")
 
             original_water_columns = [str(col) for col in gdf.columns]
             self.water_original_columns = original_water_columns
 
+            # 查找 RVCD 和 RVNM 字段
+
             rvcd_field = None
             rvnm_field = None
+            # 河流代码可能的字段名
+            rvcd_candidates = ['rvcd', 'rvcd_', '河流代码', '河流编码']
+            # 河流名称可能的字段名
+            rvnm_candidates = ['rvnm', 'rvname', 'ravnme', 'rvnavb', '河流名称', '河流名']
             for col in gdf.columns:
-                if col.lower() == 'rvcd':
+                col_lower = col.lower()
+                if col_lower in rvcd_candidates and rvcd_field is None:
                     rvcd_field = col
-                elif col.lower() == 'rvnm':
+                if col_lower in rvnm_candidates and rvnm_field is None:
                     rvnm_field = col
+
+            self.emit_progress(f"匹配到的河流代码字段: {rvcd_field}")
+            self.emit_progress(f"匹配到的河流名称字段: {rvnm_field}")
 
             if not rvcd_field or not rvnm_field:
                 self.emit_progress("❌ 水系文件缺少必要字段 rvcd/rvnm")
                 return False
 
+            # 检查 RVNM 字段是否全为空
+            rvnm_empty_count = gdf[rvnm_field].isna().sum()
+            if rvnm_empty_count == len(gdf):
+                self.emit_progress(f"⚠️ 警告: 水系文件中 [{rvnm_field}] 字段全为空，将无法进行河流名称匹配校验！")
+                self.emit_progress("⚠️ 请检查水系数据是否完整，或使用其他包含河流名称的数据源")
+
             rvcd_count = {}
             for idx, row in gdf.iterrows():
-                rvcd_val = row.get(rvcd_field)
-                rvnm_val = row.get(rvnm_field)
-                rvcd = str(rvcd_val).strip() if rvcd_val is not None else ''
-                rvnm = str(rvnm_val).strip() if rvnm_val is not None else ''
+                # 直接访问字段值
+                rvcd_val = row[rvcd_field]
+                rvnm_val = row[rvnm_field]
+
+                # 使用 pd.isna() 正确检测 NaN 值
+                if pd.isna(rvcd_val):
+                    rvcd = ''
+                else:
+                    rvcd = str(rvcd_val).strip()
+
+                if pd.isna(rvnm_val):
+                    rvnm = ''
+                else:
+                    rvnm = str(rvnm_val).strip()
 
                 record = row[original_water_columns].to_dict()
                 record['河流代码'] = rvcd
@@ -100,7 +166,8 @@ class WaterSystemChecker:
                         rvcd_count[rvcd] = []
                     rvcd_count[rvcd].append(idx)
 
-                if rvnm and rvnm not in ['nan', 'None']:
+                # 检查河流名称是否有效
+                if rvnm:
                     self.water_names.add(rvnm.upper())
 
                 record['错误信息'] = '; '.join(error_msgs) if error_msgs else ''
@@ -120,12 +187,11 @@ class WaterSystemChecker:
                 self.water_codes.add(rvcd.upper())
 
             for rec in self.water_records:
-                code_val = rec.get('河流代码')
-                code = str(code_val).strip().upper() if code_val is not None else ''
-                name_val = rec.get('河流名称')
-                name = str(name_val).strip() if name_val is not None else ''
-                if code and code not in ['NAN', 'NONE']:
-                    self.water_code_to_name[code] = name
+                code = rec.get('河流代码', '')
+                name = rec.get('河流名称', '')
+                # 只有当代码和名称都有效时才存入映射
+                if code and name:
+                    self.water_code_to_name[code.upper()] = name
 
             invalid_code_count = sum(1 for r in self.water_records if r['河流代码是否为17位'] == '否')
             duplicate_count = len(duplicate_rvcd)
@@ -151,6 +217,44 @@ class WaterSystemChecker:
                 if file == filename:
                     return os.path.join(root, file)
         return None
+
+    def find_shp_files_by_keyword(self, folder, keyword):
+        """查找包含关键词的所有shp文件，支持模糊匹配"""
+        results = []
+        for root, dirs, files in os.walk(folder):
+            for file in files:
+                if file.endswith('.shp') and keyword in file:
+                    results.append(os.path.join(root, file))
+        return results
+
+    def find_folders_with_shp(self, root_folder):
+        """递归查找所有包含目标shp文件的文件夹
+
+        Args:
+            root_folder: 根目录路径
+
+        Returns:
+            list: 包含目标shp文件的文件夹路径列表
+        """
+        # 目标文件列表
+        target_files = ['断面平面位置L.shp', '防治对象分布P.shp']
+        target_keywords = ['隐患要素分布', '隐患要素分布L']
+
+        folders_with_shp = set()
+
+        self.emit_progress(f"递归搜索目录: {root_folder}")
+
+        for root, dirs, files in os.walk(root_folder):
+            # 检查是否有目标shp文件
+            for f in files:
+                if f in target_files:
+                    folders_with_shp.add(root)
+                    self.emit_progress(f"  发现目标文件夹: {root} (包含 {f})")
+                elif f.endswith('.shp') and any(kw in f for kw in target_keywords):
+                    folders_with_shp.add(root)
+                    self.emit_progress(f"  发现目标文件夹: {root} (包含 {f})")
+
+        return list(folders_with_shp)
 
     def validate_duanmian(self, row):
         """断面平面位置L.shp 校验规则"""
@@ -259,10 +363,6 @@ class WaterSystemChecker:
 
         if code_len_valid == '否':
             error_msgs.append(f'河流代码长度{len(rvcd)}位(应为17位)')
-        if code_in_water == '否' and rvcd:
-            error_msgs.append(f'河流代码[{rvcd}]不在水系中')
-            if rvnm:
-                error_msgs.append(f'河流名称[{rvnm}]不在水系中')
 
         if rvcd:
             if code_in_water == '否':
@@ -477,54 +577,90 @@ class WaterSystemChecker:
         self.emit_progress("开始检查各图层...")
 
         layer_configs = [
-            ('断面平面位置L.shp', self.validate_duanmian, ['河流代码', '河流名称', '编号', '名称']),
-            ('防治对象分布P.shp', self.validate_fangzhi, ['河流代码', '河流名称']),
-            ('隐患要素分布L.shp', self.validate_yinhuan, ['河流代码', '河流名称', '编号'])
+            ('断面平面位置L.shp', self.validate_duanmian, ['河流代码', '河流名称', '编号', '名称'], False),
+            ('防治对象分布P.shp', self.validate_fangzhi, ['河流代码', '河流名称'], False),
+            ('隐患要素分布', self.validate_yinhuan, ['河流代码', '河流名称', '编号'], True)
         ]
 
-        subfolders = []
+        # 查找待检查的文件夹列表 - 使用递归搜索
+        folders_to_check = []
         if os.path.exists(self.folder_path):
-            for item in os.listdir(self.folder_path):
-                item_path = os.path.join(self.folder_path, item)
-                if os.path.isdir(item_path):
-                    subfolders.append(item_path)
+            # 递归搜索所有包含目标shp文件的文件夹
+            folders_to_check = self.find_folders_with_shp(self.folder_path)
 
-        self.emit_progress(f"发现 {len(subfolders)} 个子文件夹")
+            if folders_to_check:
+                self.emit_progress(f"发现 {len(folders_to_check)} 个包含图层文件的文件夹")
+            else:
+                self.emit_progress(f"⚠ 在目录树中未发现任何包含目标图层文件的文件夹")
+                self.emit_progress(f"  目标文件: 断面平面位置L.shp, 防治对象分布P.shp, 隐患要素分布*.shp")
 
-        for subfolder in subfolders:
-            subfolder_name = os.path.basename(subfolder)
-            self.emit_progress(f"处理文件夹：{subfolder_name}")
+        for folder in folders_to_check:
+            folder_name = os.path.basename(folder) if folder != self.folder_path else "(当前文件夹)"
+            self.emit_progress(f"处理文件夹：{folder_name}")
 
-            for filename, validate_func, required_fields in layer_configs:
-                self.emit_progress(f"检查：{filename}")
-
-                shp_path = self.find_shp_file_in_folder(subfolder, filename)
-
-                if not shp_path:
-                    self.emit_progress(f"⚠ 文件未找到")
-                    result = {
-                        'file_name': filename,
-                        'file_path': '',
-                        'folder_name': subfolder_name,
-                        'total_records': 0,
-                        'valid_records': 0,
-                        'invalid_records': 0,
-                        'duplicate_records': 0,
-                        'status': '文件未找到',
-                        'errors': ['文件未找到']
-                    }
-                else:
-                    self.emit_progress(f"文件路径：{shp_path}")
-                    result = self.process_single_shp(shp_path, filename, validate_func, required_fields)
-                    result['folder_name'] = subfolder_name
-
-                    if result['status'] == '通过':
-                        self.emit_progress(f"✅ 状态：通过 | 记录：{result['total_records']} | 有效：{result['valid_records']}")
+            for filename, validate_func, required_fields, use_keyword in layer_configs:
+                if use_keyword:
+                    shp_paths = self.find_shp_files_by_keyword(folder, filename)
+                    if not shp_paths:
+                        self.emit_progress(f"检查：{filename}* (模糊匹配)")
+                        self.emit_progress(f"⚠ 未找到包含 '{filename}' 的图层")
+                        result = {
+                            'file_name': f'{filename}* (模糊匹配)',
+                            'file_path': '',
+                            'folder_name': folder_name,
+                            'total_records': 0,
+                            'valid_records': 0,
+                            'invalid_records': 0,
+                            'duplicate_records': 0,
+                            'status': '文件未找到',
+                            'errors': ['文件未找到']
+                        }
+                        self.results.append(result)
                     else:
-                        self.emit_progress(f"❌ 状态：{result['status']} | 记录：{result['total_records']} | "
-                                          f"有效：{result['valid_records']} | 无效：{result['invalid_records']}")
+                        for shp_path in shp_paths:
+                            actual_filename = os.path.basename(shp_path)
+                            self.emit_progress(f"检查：{actual_filename} (匹配关键词 '{filename}')")
+                            self.emit_progress(f"文件路径：{shp_path}")
+                            result = self.process_single_shp(shp_path, actual_filename, validate_func, required_fields)
+                            result['folder_name'] = folder_name
 
-                self.results.append(result)
+                            if result['status'] == '通过':
+                                self.emit_progress(f"✅ 状态：通过 | 记录：{result['total_records']} | 有效：{result['valid_records']}")
+                            else:
+                                self.emit_progress(f"❌ 状态：{result['status']} | 记录：{result['total_records']} | "
+                                                  f"有效：{result['valid_records']} | 无效：{result['invalid_records']}")
+
+                            self.results.append(result)
+                else:
+                    self.emit_progress(f"检查：{filename}")
+
+                    shp_path = self.find_shp_file_in_folder(folder, filename)
+
+                    if not shp_path:
+                        self.emit_progress(f"⚠ 文件未找到")
+                        result = {
+                            'file_name': filename,
+                            'file_path': '',
+                            'folder_name': folder_name,
+                            'total_records': 0,
+                            'valid_records': 0,
+                            'invalid_records': 0,
+                            'duplicate_records': 0,
+                            'status': '文件未找到',
+                            'errors': ['文件未找到']
+                        }
+                    else:
+                        self.emit_progress(f"文件路径：{shp_path}")
+                        result = self.process_single_shp(shp_path, filename, validate_func, required_fields)
+                        result['folder_name'] = folder_name
+
+                        if result['status'] == '通过':
+                            self.emit_progress(f"✅ 状态：通过 | 记录：{result['total_records']} | 有效：{result['valid_records']}")
+                        else:
+                            self.emit_progress(f"❌ 状态：{result['status']} | 记录：{result['total_records']} | "
+                                              f"有效：{result['valid_records']} | 无效：{result['invalid_records']}")
+
+                    self.results.append(result)
 
         self.end_time = datetime.now()
 

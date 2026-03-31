@@ -86,11 +86,15 @@ class AutoDetectThread(QThread):
 class ArcGISConfigDialog(QDialog):
     """ArcGIS环境配置对话框"""
 
+    # 记录测试是否成功
+    _test_success = False
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("ArcGIS Python配置")
         self.setMinimumWidth(500)
         self.config = ArcGISConfig()
+        self._test_success = False
         self._init_ui()
 
     def _init_ui(self):
@@ -221,11 +225,13 @@ class ArcGISConfigDialog(QDialog):
         self.save_btn.setEnabled(True)
 
         if success:
+            self._test_success = True
             self.path_edit.setText(detected_path)
             self.status_label.setText("✓ 检测成功")
             self.status_label.setStyleSheet("color: #27ae60; font-size: 14px; padding: 5px;")
             QMessageBox.information(self, "检测成功", message)
         else:
+            self._test_success = False
             self.status_label.setText("✗ 未检测到")
             self.status_label.setStyleSheet("color: #e74c3c; font-size: 14px; padding: 5px;")
             QMessageBox.warning(self, "未找到", message)
@@ -275,10 +281,12 @@ class ArcGISConfigDialog(QDialog):
         self.save_btn.setEnabled(True)
 
         if success:
+            self._test_success = True
             self.status_label.setText("✓ 测试成功")
             self.status_label.setStyleSheet("color: #27ae60; font-size: 14px; padding: 5px;")
             QMessageBox.information(self, "成功", message)
         else:
+            self._test_success = False
             self.status_label.setText(f"✗ 测试失败")
             self.status_label.setStyleSheet("color: #e74c3c; font-size: 14px; padding: 5px;")
             QMessageBox.warning(self, "测试失败", message)
@@ -301,8 +309,12 @@ class ArcGISConfigDialog(QDialog):
             if reply == QMessageBox.No:
                 return
 
-        if self.config.save_python_path(path):
-            QMessageBox.information(self, "成功", "配置已保存。")
+        # 保存时带上验证状态
+        if self.config.save_python_path(path, verified=self._test_success):
+            if self._test_success:
+                QMessageBox.information(self, "成功", "配置已保存，环境已验证。")
+            else:
+                QMessageBox.information(self, "成功", "配置已保存。\n提示：建议先测试连接确认环境可用。")
             self.accept()
         else:
             QMessageBox.warning(self, "失败", "保存配置失败")

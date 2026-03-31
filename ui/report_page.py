@@ -760,8 +760,9 @@ class ReportPage(QWidget):
 
                 # 设置数据行边框和勾选列字体
                 wingdings2_font = Font(name='Wingdings 2')
-                # 勾选列 (Excel列号17-27): 束窄、急弯、低洼地、临河滑坡、泥石流、沟滩占地、溃决、壅水、顶托、改道、漫流
-                checkbox_cols = list(range(17, 28))  # Excel 1-based 列号
+                # 勾选列 (Excel列号18-28): 束窄、急弯、低洼地、临河滑坡、泥石流、沟滩占地、溃决、壅水、顶托、改道、漫流
+                # 注意：'17.束窄'在Excel列18，'27.漫流'在Excel列28
+                checkbox_cols = list(range(18, 29))  # Excel 1-based 列号: 18,19,20,21,22,23,24,25,26,27,28
 
                 for row in ws1.iter_rows(min_row=4, max_row=3 + len(records), max_col=29):
                     for cell in row:
@@ -1035,7 +1036,9 @@ class ReportPage(QWidget):
                         cell.border = thin_border
 
                 wingdings2_font = Font(name='Wingdings 2')
-                checkbox_cols = list(range(17, 28))
+                # 勾选列 (Excel列号18-28): 束窄、急弯、低洼地、临河滑坡、泥石流、沟滩占地、溃决、壅水、顶托、改道、漫流
+                # 注意：'17.束窄'在Excel列18，'27.漫流'在Excel列28
+                checkbox_cols = list(range(18, 29))  # Excel 1-based 列号: 18,19,20,21,22,23,24,25,26,27,28
                 for row in ws1.iter_rows(min_row=4, max_row=3 + len(records), max_col=30):
                     for cell in row:
                         cell.border = thin_border

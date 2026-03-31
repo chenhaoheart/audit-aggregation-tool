@@ -1,0 +1,355 @@
+[
+  {
+    "shp_path": "D:/qh-dcpj-py/24青海断面数据整理检查脚本/省平台断面汇总增强版/空间数据检查桌面版/青海24示范小流域-药草沟-20260313/大通县最新水系/大通回族土族自治县_药草沟.shp",
+    "shp_name": "大通回族土族自治县_药草沟.shp",
+    "source_fields": [
+      "OBJECTID",
+      "O_Name",
+      "O_Com",
+      "O_Com1",
+      "O_Com2",
+      "O_LClr",
+      "O_LWidth",
+      "O_LAlpha",
+      "O_AAlpha",
+      "O_AClr",
+      "O_Flag",
+      "name",
+      "PAC",
+      "NAME_1",
+      "省代码",
+      "省",
+      "市代码",
+      "市",
+      "类型"
+    ],
+    "output_name": "水系L",
+    "field_mapping": {
+      "OBJECTID": [
+        "OBJECTID"
+      ],
+      "O_Name": [
+        "O_Name"
+      ],
+      "O_Com": [
+        "O_Com"
+      ],
+      "O_Com1": [
+        "O_Com1"
+      ],
+      "O_Com2": [
+        "O_Com2"
+      ],
+      "O_LClr": [
+        "O_LClr"
+      ],
+      "O_LWidth": [
+        "O_LWidth"
+      ],
+      "O_LAlpha": [
+        "O_LAlpha"
+      ],
+      "O_AAlpha": [
+        "O_AAlpha"
+      ],
+      "O_AClr": [
+        "O_AClr"
+      ],
+      "O_Flag": [
+        "O_Flag"
+      ],
+      "name": [
+        "name"
+      ],
+      "PAC": [
+        "PAC"
+      ],
+      "NAME_1": [
+        "NAME_1"
+      ],
+      "省代码": [
+        "省代码"
+      ],
+      "省": [
+        "省"
+      ],
+      "市代码": [
+        "市代码"
+      ],
+      "市": [
+        "市"
+      ],
+      "类型": [
+        "类型"
+      ]
+    }
+  },
+  {
+    "shp_path": "D:/qh-dcpj-py/24青海断面数据整理检查脚本/省平台断面汇总增强版/空间数据检查桌面版/青海24示范小流域-药草沟-20260313/大通县最新水系/大通水系.shp",
+    "shp_name": "大通水系.shp",
+    "source_fields": [
+      "OBJECTID",
+      "RVCD",
+      "RVNM",
+      "GB",
+      "FRVCD",
+      "TRVCD",
+      "INDCD",
+      "ONDCD",
+      "BWSCD",
+      "RSCD",
+      "RSNM",
+      "RVTYPE",
+      "RVCS",
+      "RVLEN",
+      "RVSLP",
+      "IELV",
+      "OELV",
+      "VR",
+      "ISDISP",
+      "DESP",
+      "LEVEL",
+      "RESCD",
+      "RESRVID",
+      "type04",
+      "Shape_Leng"
+    ],
+    "output_name": "水系",
+    "field_mapping": {
+      "OBJECTID": [
+        "OBJECTID"
+      ],
+      "RVCD": [
+        "RVCD"
+      ],
+      "RVNM": [
+        "RVNM"
+      ],
+      "GB": [
+        "GB"
+      ],
+      "FRVCD": [
+        "FRVCD"
+      ],
+      "TRVCD": [
+        "TRVCD"
+      ],
+      "INDCD": [
+        "INDCD"
+      ],
+      "ONDCD": [
+        "ONDCD"
+      ],
+      "BWSCD": [
+        "BWSCD"
+      ],
+      "RSCD": [
+        "RSCD"
+      ],
+      "RSNM": [
+        "RSNM"
+      ],
+      "RVTYPE": [
+        "RVTYPE"
+      ],
+      "RVCS": [
+        "RVCS"
+      ],
+      "RVLEN": [
+        "RVLEN"
+      ],
+      "RVSLP": [
+        "RVSLP"
+      ],
+      "IELV": [
+        "IELV"
+      ],
+      "OELV": [
+        "OELV"
+      ],
+      "VR": [
+        "VR"
+      ],
+      "ISDISP": [
+        "ISDISP"
+      ],
+      "DESP": [
+        "DESP"
+      ],
+      "LEVEL": [
+        "LEVEL"
+      ],
+      "RESCD": [
+        "RESCD"
+      ],
+      "RESRVID": [
+        "RESRVID"
+      ],
+      "type04": [
+        "type04"
+      ],
+      "Shape_Leng": [
+        "Shape_Leng"
+      ]
+    }
+  },
+  {
+    "shp_path": "D:/qh-dcpj-py/24青海断面数据整理检查脚本/省平台断面汇总增强版/空间数据检查桌面版/青海24示范小流域-药草沟-20260313/630121_大通/电子数据/空间数据/断面平面位置L.shp",
+    "shp_name": "断面平面位置L.shp",
+    "source_fields": [
+      "名称",
+      "类别",
+      "河流名称",
+      "河流代码",
+      "编号"
+    ],
+    "output_name": "断面平面位置L.shp",
+    "field_mapping": {
+      "名称": [
+        "断面NM",
+        "断面",
+        "审核汇",
+        "名称",
+        "NAME",
+        "Name",
+        "name",
+        "断面名称",
+        "断面名"
+      ],
+      "编号": [
+        "PID",
+        "断面编",
+        "编号",
+        "编码",
+        "pid"
+      ],
+      "类别": [
+        "TYPE",
+        "TYPES",
+        "TYPBS",
+        "类别",
+        "类型",
+        "断面类"
+      ],
+      "河流名称": [
+        "RVNM",
+        "RVNAME",
+        "RVNAME",
+        "RVNAVB",
+        "河流名称",
+        "河流名"
+      ],
+      "河流代码": [
+        "RVCD",
+        "rvcd",
+        "RIVL",
+        "河流代码",
+        "河流代"
+      ]
+    }
+  },
+  {
+    "shp_path": "D:/qh-dcpj-py/24青海断面数据整理检查脚本/省平台断面汇总增强版/空间数据检查桌面版/青海24示范小流域-药草沟-20260313/630121_大通/电子数据/空间数据/防治对象分布P.shp",
+    "shp_name": "防治对象分布P.shp",
+    "source_fields": [
+      "名称",
+      "代码",
+      "人口",
+      "类别",
+      "河流名称",
+      "河流代码"
+    ],
+    "output_name": "防治对象分布P.shp",
+    "field_mapping": {
+      "名称": [
+        "NAME",
+        "Name",
+        "name",
+        "名称",
+        "行政区"
+      ],
+      "代码": [
+        "PID",
+        "代码",
+        "pid",
+        "行政_1"
+      ],
+      "人口": [
+        "PCOUNT",
+        "POPULATION",
+        "人口"
+      ],
+      "类别": [
+        "TYPE",
+        "TYPES",
+        "TYPBS",
+        "类别",
+        "类型"
+      ],
+      "河流名称": [
+        "RVNM",
+        "RVNAME",
+        "RVNAME",
+        "RVNAVB",
+        "河流名称",
+        "河流名",
+        "所在流"
+      ],
+      "河流代码": [
+        "RVCD",
+        "rvcd",
+        "河流代码",
+        "河流代"
+      ]
+    }
+  },
+  {
+    "shp_path": "D:/qh-dcpj-py/24青海断面数据整理检查脚本/省平台断面汇总增强版/空间数据检查桌面版/青海24示范小流域-药草沟-20260313/630121_大通/电子数据/空间数据/隐患要素分布L.shp",
+    "shp_name": "隐患要素分布L.shp",
+    "source_fields": [
+      "名称",
+      "类别",
+      "河流名称",
+      "河流代码",
+      "编号"
+    ],
+    "output_name": "隐患要素分布L.shp",
+    "field_mapping": {
+      "名称": [
+        "名称",
+        "NAME",
+        "Name",
+        "name"
+      ],
+      "编号": [
+        "PID",
+        "编号",
+        "编码",
+        "pid",
+        "Pid"
+      ],
+      "类别": [
+        "TYPE",
+        "TYPES",
+        "types",
+        "TYPBS",
+        "类别"
+      ],
+      "河流名称": [
+        "RVNM",
+        "RVNAME",
+        "rvname",
+        "RAVNME",
+        "RVNAVB",
+        "河流名称",
+        "河流名"
+      ],
+      "河流代码": [
+        "RVCD",
+        "rvcd",
+        "河流代码",
+        "河流代"
+      ]
+    }
+  }
+]

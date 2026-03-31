@@ -13,13 +13,15 @@ from openpyxl import load_workbook
 def parse_checkbox(value) -> str:
     """
     解析勾选符号
-    þ -> ☑ (Wingdings 2 字体的 R，带方框对号)
-    其他非空值 -> ☒ (Wingdings 2 字体的 S，带方框叉号)
+    Wingdings 2 字体中：
+    - 'R' 或 'þ' 显示为带框对号 -> ☑
+    - 其他非空值显示为带框叉号 -> ☒
     """
     if pd.isna(value):
         return ''
     val = str(value).strip()
-    if val == 'þ':
+    # Wingdings 2 字体中 'R' 和 'þ' 都显示为带框对号
+    if val in ['R', 'r', 'þ']:
         return '☑'
     elif val:
         return '☒'
@@ -137,6 +139,9 @@ def load_fubiao1(file_path: str) -> Tuple[List[Dict], List[str], Dict]:
 
     records = []
 
+    # 勾选列的索引（0-based）：列17-27
+    checkbox_col_indices = list(range(16, 27))  # 索引16-26对应列17-27
+
     # 遍历数据行
     for i in range(len(data_df)):
         row = data_df.iloc[i]
@@ -146,9 +151,9 @@ def load_fubiao1(file_path: str) -> Tuple[List[Dict], List[str], Dict]:
             val = row[col_idx]
             header = headers[col_idx]
 
-            # 处理勾选符号
-            if pd.notna(val) and str(val).strip() == 'þ':
-                record[header] = '☑'
+            # 处理勾选符号（列17-27）
+            if col_idx in checkbox_col_indices:
+                record[header] = parse_checkbox(val)
             elif pd.notna(val):
                 record[header] = val
             else:

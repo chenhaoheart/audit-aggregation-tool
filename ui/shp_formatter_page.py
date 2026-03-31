@@ -62,12 +62,18 @@ class FormatThread(QThread):
 class ShpFormatterPage(QWidget):
     """SHP格式化页面"""
 
+    # 环境检查结果缓存（全局共享）
+    _env_checked = False
+    _env_success = False
+    _env_python_path = None
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.formatter = ShpFormatter()
         self.format_thread = None
         self._init_ui()
-        self._check_environment()
+        # 不在初始化时检查，改为延迟检查或手动检查
+        self._update_env_status_lazy()
 
     def _init_ui(self):
         layout = QVBoxLayout()
@@ -258,6 +264,36 @@ class ShpFormatterPage(QWidget):
 
         self.setLayout(layout)
 
+    def _update_env_status_lazy(self):
+        """延迟更新环境状态（不执行实际检查）"""
+        from core.config_manager import ArcGISConfig
+
+        config = ArcGISConfig()
+        python_path = config.python_path
+        verified = config.verified
+
+        # 如果之前已验证成功，直接显示已就绪
+        if python_path and verified:
+            ShpFormatterPage._env_checked = True
+            ShpFormatterPage._env_success = True
+            ShpFormatterPage._env_python_path = python_path
+            self.env_label.setText(f"已就绪: {python_path}")
+            self.env_label.setStyleSheet("color: #27ae60; font-weight: bold; font-size: 14px;")
+            self.start_btn.setEnabled(True)
+            self.start_btn.setToolTip("")
+        elif python_path:
+            # 路径已配置但未验证
+            self.env_label.setText(f"待验证: {python_path} (点击开始处理时验证)")
+            self.env_label.setStyleSheet("color: #f39c12; font-size: 14px;")
+            self.start_btn.setEnabled(True)
+            self.start_btn.setToolTip("环境路径已配置，点击开始处理时将自动验证")
+        else:
+            # 未配置
+            self.env_label.setText("未配置: 请点击'配置ArcGIS'设置Python路径")
+            self.env_label.setStyleSheet("color: #e74c3c; font-size: 14px;")
+            self.start_btn.setEnabled(False)
+            self.start_btn.setToolTip("请点击'配置ArcGIS'设置Python路径")
+
     def _check_environment(self):
         """检查ArcGIS环境（异步版本）"""
         self.env_label.setText("正在检测ArcGIS环境...")
@@ -285,6 +321,11 @@ class ShpFormatterPage(QWidget):
         """环境检测完成回调"""
         if hasattr(self, '_loading_timer'):
             self._loading_timer.stop()
+
+        # 更新缓存
+        ShpFormatterPage._env_checked = True
+        ShpFormatterPage._env_success = success
+        ShpFormatterPage._env_python_path = python_path
 
         if success:
             self.env_label.setText(f"已就绪: {python_path}")
@@ -341,6 +382,51 @@ class ShpFormatterPage(QWidget):
             QMessageBox.warning(self, "警告", "请选择输入和输出目录")
             return
 
+        python_exe = get_arcgis_python_path()
+        if not python_exe:
+            QMessageBox.critical(self, "错误", "未配置ArcGIS Python路径")
+            return
+
+        # 如果环境未验证，先验证
+        if not ShpFormatterPage._env_checked:
+            self.env_label.setText("正在验证ArcGIS环境...")
+            self.env_label.setStyleSheet("color: #3498db; font-size: 14px;")
+            self.start_btn.setEnabled(False)
+
+            # 在后台验证环境
+            self._pre_check_thread = CheckEnvironmentThread()
+            self._pre_check_thread.finished_signal.connect(
+                lambda success, msg, path: self._on_pre_check_done(success, msg, path, input_root, output_root)
+            )
+            self._pre_check_thread.start()
+            return
+
+        # 环境已验证成功，直接开始处理
+        self._do_process(input_root, output_root)
+
+    def _on_pre_check_done(self, success: bool, message: str, python_path: str, input_root: str, output_root: str):
+        """预检查完成回调"""
+        from core.config_manager import ArcGISConfig
+
+        ShpFormatterPage._env_checked = True
+        ShpFormatterPage._env_success = success
+        ShpFormatterPage._env_python_path = python_path
+
+        if success:
+            self.env_label.setText(f"已就绪: {python_path}")
+            self.env_label.setStyleSheet("color: #27ae60; font-weight: bold; font-size: 14px;")
+            # 更新配置文件中的验证状态
+            config = ArcGISConfig()
+            config.save_python_path(python_path, verified=True)
+            self._do_process(input_root, output_root)
+        else:
+            self.env_label.setText(f"验证失败: {message}")
+            self.env_label.setStyleSheet("color: #e74c3c; font-size: 14px;")
+            self.start_btn.setEnabled(True)
+            QMessageBox.critical(self, "错误", f"ArcGIS环境验证失败:\n{message}")
+
+    def _do_process(self, input_root: str, output_root: str):
+        """执行实际处理"""
         python_exe = get_arcgis_python_path()
         if not python_exe:
             QMessageBox.critical(self, "错误", "未配置ArcGIS Python路径")

@@ -431,6 +431,7 @@ class ShpConfigWidget(QWidget):
                 background: transparent;
             }
         """)
+        self.mapping_table.cellChanged.connect(self._on_target_field_changed)
         layout.addWidget(self.mapping_table)
 
         # 添加字段按钮
@@ -581,6 +582,7 @@ class ShpConfigWidget(QWidget):
 
     def _refresh_table(self):
         """刷新表格"""
+        self.mapping_table.blockSignals(True)
         self.mapping_table.setRowCount(0)
 
         for target, candidates in self._field_mapping.items():
@@ -623,6 +625,7 @@ class ShpConfigWidget(QWidget):
             self.mapping_table.setCellWidget(row, 3, delete_container)
 
         self._update_match_status()
+        self.mapping_table.blockSignals(False)
 
     def _update_match_status(self):
         """更新匹配状态"""
@@ -649,6 +652,11 @@ class ShpConfigWidget(QWidget):
                     status_label.setText("✗ 未匹配")
                     status_label.setStyleSheet("color: #e74c3c;")
                     candidates_widget.set_matched_fields([])
+
+    def _on_target_field_changed(self, row: int, column: int):
+        """目标字段变化时触发配置更新"""
+        if column == 0:  # 只有目标字段列变化才触发
+            self.config_changed.emit()
 
     def _add_target_field(self):
         """添加目标字段"""
