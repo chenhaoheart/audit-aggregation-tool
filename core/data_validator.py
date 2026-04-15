@@ -9,16 +9,151 @@ import geopandas as gpd
 import pandas as pd
 from typing import Dict, List, Tuple, Optional
 from openpyxl import load_workbook
+from difflib import SequenceMatcher
+
+
+def fuzzy_match(s1: str, s2: str) -> float:
+    """模糊匹配相似度"""
+    # 去除数字前缀如 "5.名称" -> "名称"
+    def clean(s):
+        import re
+        return re.sub(r'^\d+[\.\、\s]*', '', s).strip()
+    return SequenceMatcher(None, clean(s1), clean(s2)).ratio()
 
 
 class DataValidator:
     """附表与空间数据对比校验器"""
+
+    # 默认字段映射配置 - 新格式：{shp字段: 附表字段}
+    DEFAULT_FIELD_MAPPING = {
+        'fubiao1_vs_fangzhi': {
+            # shp字段 -> 附表字段
+            'match_fields': {
+                '名称': '5.名称',
+                '代码': '6.代码'
+            },
+            'detail_fields': {
+                '类型': '7.类型',
+                '人口': '8.人口',
+                '河流名称': '9.河流名称',
+                '河流代码': '10.河流代码'
+            }
+        },
+        'fubiao2_vs_yinhuan': {
+            'match_fields': {
+                '名称': '名称',
+                '编号': '编码'
+            },
+            'detail_fields': {
+                '类型': '类型',
+                '河流名称': '河流名称',
+                '河流代码': '河流代码'
+            }
+        },
+        'fubiao3_vs_yinhuan': {
+            'match_fields': {
+                '名称': '名称',
+                '编号': '编码'
+            },
+            'detail_fields': {
+                '类型': '类型',
+                '河流名称': '河流名称',
+                '河流代码': '河流代码'
+            }
+        }
+    }
 
     def __init__(self):
         self.fubiao_data = {}  # 附表数据
         self.shp_data = {}  # 空间数据
         self.validation_results = {}  # 校验结果
         self.progress_callback = None
+        self.field_mapping = self.DEFAULT_FIELD_MAPPING.copy()  # 字段映射
+
+    def set_field_mapping(self, mapping: dict):
+        """设置字段映射"""
+        self.field_mapping = mapping
+
+    def get_field_mapping(self) -> dict:
+        """获取当前字段映射"""
+        return self.field_mapping
+
+    @staticmethod
+    def auto_match_fields(fubiao_fields: list, shp_fields: list, threshold: float = 0.6) -> dict:
+        """
+        自动模糊匹配字段
+
+        Args:
+            fubiao_fields: 附表字段列表
+            shp_fields: shp字段列表
+            threshold: 相似度阈值
+
+        Returns:
+            映射字典 {附表字段: shp字段}
+        """
+        mapping = {}
+        used_shp = set()
+
+        # 常见映射规则
+        common_mappings = {
+            '名称': '名称',
+            '代码': '代码',
+            '编码': '编号',
+            '编号': '编号',
+            '类型': '类型',
+            '人口': '人口',
+            '河流名称': '河流名称',
+            '河流代码': '河流代码',
+            '经度': '经度',
+            '纬度': '纬度'
+        }
+
+        for fb_field in fubiao_fields:
+            # 跳过内部字段
+            if fb_field.startswith('_'):
+                continue
+
+            # 清理字段名（去除数字前缀）
+            import re
+            clean_fb = re.sub(r'^\d+[\.\、\s]*', '', fb_field).strip()
+
+            matched = None
+
+            # 1. 先尝试常见映射
+            if clean_fb in common_mappings:
+                target = common_mappings[clean_fb]
+                if target in shp_fields and target not in used_shp:
+                    matched = target
+
+            # 2. 再尝试精确匹配
+            if not matched:
+                for shp_field in shp_fields:
+                    if shp_field in used_shp:
+                        continue
+                    if shp_field == clean_fb or shp_field == fb_field:
+                        matched = shp_field
+                        break
+
+            # 3. 最后尝试模糊匹配
+            if not matched:
+                best_match = None
+                best_score = threshold
+                for shp_field in shp_fields:
+                    if shp_field in used_shp:
+                        continue
+                    score = fuzzy_match(clean_fb, shp_field)
+                    if score > best_score:
+                        best_score = score
+                        best_match = shp_field
+
+                if best_match:
+                    matched = best_match
+
+            if matched:
+                mapping[fb_field] = matched
+                used_shp.add(matched)
+
+        return mapping
 
     def emit_progress(self, msg):
         """发送进度消息"""
@@ -41,6 +176,20 @@ class DataValidator:
         self.emit_progress(f"附表2记录数: {len(self.fubiao_data['fubiao2'])}")
         self.emit_progress(f"附表3记录数: {len(self.fubiao_data['fubiao3'])}")
 
+    def get_fubiao_fields(self, table: str) -> list:
+        """获取附表字段列表"""
+        records = self.fubiao_data.get(table, [])
+        if records:
+            return [k for k in records[0].keys() if not k.startswith('_')]
+        return []
+
+    def get_shp_fields(self, shp_type: str) -> list:
+        """获取shp字段列表"""
+        records = self.shp_data.get(shp_type, [])
+        if records:
+            return [k for k in records[0].keys() if not k.startswith('_')]
+        return []
+
     def _read_shp_with_encoding(self, shp_path: str) -> Optional[gpd.GeoDataFrame]:
         """尝试多种编码读取shp文件"""
         encodings = ['utf-8', 'gbk', 'gb2312', 'gb18030', 'cp936', 'latin1']
@@ -50,15 +199,14 @@ class DataValidator:
                 gdf = gpd.read_file(shp_path, encoding=encoding)
                 gdf.columns = [str(col) for col in gdf.columns]
                 return gdf
-            except:
+            except Exception:
                 continue
 
-        # 最后尝试默认方式
         try:
             gdf = gpd.read_file(shp_path)
             gdf.columns = [str(col) for col in gdf.columns]
             return gdf
-        except:
+        except Exception:
             return None
 
     def load_shp_data(self, folder_path: str) -> bool:
@@ -131,7 +279,8 @@ class DataValidator:
     def validate_fubiao1_vs_fangzhi(self) -> dict:
         """
         附表1 ↔ 防治对象分布P.shp 双向匹配
-        匹配字段：代码（6.代码）+ 名称（5.名称）
+        使用字段映射配置进行匹配
+        映射格式：{shp字段: 附表字段}
         """
         result = {
             'matched': [],
@@ -147,12 +296,24 @@ class DataValidator:
 
         self.emit_progress("开始附表1与防治对象分布P.shp对比...")
 
-        # 构建shp索引：代码+名称 -> 记录
+        # 获取映射配置 - 新格式：{shp字段: 附表字段}
+        mapping = self.field_mapping.get('fubiao1_vs_fangzhi', {})
+        match_fields = mapping.get('match_fields', {'名称': '5.名称', '代码': '6.代码'})
+
+        # 获取匹配字段 - keys是shp字段，values是附表字段
+        shp_match_fields = list(match_fields.keys())
+        fubiao_match_fields = list(match_fields.values())
+
+        self.emit_progress(f"匹配字段: shp[{', '.join(shp_match_fields)}] <-> 附表[{', '.join(fubiao_match_fields)}]")
+
+        # 构建shp索引
         shp_index = {}
         for rec in shp_records:
-            code = str(rec.get('代码', '')).strip().upper()
-            name = str(rec.get('名称', '')).strip().upper()
-            key = f"{code}|{name}"
+            key_parts = []
+            for shp_field in shp_match_fields:
+                val = str(rec.get(shp_field, '')).strip().upper()
+                key_parts.append(val)
+            key = '|'.join(key_parts)
             if key not in shp_index:
                 shp_index[key] = []
             shp_index[key].append(rec)
@@ -160,20 +321,18 @@ class DataValidator:
         # 构建附表索引
         fubiao_index = {}
         for rec in fubiao_records:
-            code = str(rec.get('6.代码', '')).strip().upper()
-            name = str(rec.get('5.名称', '')).strip().upper()
-            key = f"{code}|{name}"
+            key_parts = []
+            for fb_field in fubiao_match_fields:
+                val = str(rec.get(fb_field, '')).strip().upper()
+                key_parts.append(val)
+            key = '|'.join(key_parts)
             if key not in fubiao_index:
                 fubiao_index[key] = []
             fubiao_index[key].append(rec)
 
-        # 匹配成功的key
-        matched_keys = set()
-
-        # 检查附表记录是否在shp中
+        # 匹配
         for key, recs in fubiao_index.items():
             if key in shp_index:
-                matched_keys.add(key)
                 for rec in recs:
                     result['matched'].append({
                         'type': 'fubiao1',
@@ -184,7 +343,6 @@ class DataValidator:
                 for rec in recs:
                     result['fubiao_only'].append(rec)
 
-        # 检查shp记录是否在附表中
         for key, recs in shp_index.items():
             if key not in fubiao_index:
                 for rec in recs:
@@ -203,14 +361,19 @@ class DataValidator:
     def validate_fubiao23_vs_yinhuan(self) -> dict:
         """
         附表2/3 ↔ 隐患要素分布L.shp 双向匹配
-        匹配字段：编码/编号 + 名称
+        分别使用附表2和附表3的映射配置进行匹配
+        映射格式：{shp字段: 附表字段}
         """
         result = {
-            'matched': [],
-            'fubiao_only': [],
+            'fubiao2_matched': [],
+            'fubiao2_only': [],
+            'fubiao3_matched': [],
+            'fubiao3_only': [],
             'shp_only': [],
-            'match_count': 0,
-            'fubiao_only_count': 0,
+            'fubiao2_match_count': 0,
+            'fubiao2_only_count': 0,
+            'fubiao3_match_count': 0,
+            'fubiao3_only_count': 0,
             'shp_only_count': 0
         }
 
@@ -220,78 +383,101 @@ class DataValidator:
 
         self.emit_progress("开始附表2/3与隐患要素分布L.shp对比...")
 
-        # 合并附表2和附表3
-        all_fubiao_records = []
-        for rec in fubiao2_records:
-            rec['_source_table'] = '附表2'
-            all_fubiao_records.append(rec)
-        for rec in fubiao3_records:
-            rec['_source_table'] = '附表3'
-            all_fubiao_records.append(rec)
+        # 获取附表2映射配置
+        mapping2 = self.field_mapping.get('fubiao2_vs_yinhuan', {})
+        match_fields2 = mapping2.get('match_fields', {'名称': '名称', '编号': '编码'})
 
-        # 构建shp索引：编号+名称 -> 记录
+        # 获取附表3映射配置
+        mapping3 = self.field_mapping.get('fubiao3_vs_yinhuan', {})
+        match_fields3 = mapping3.get('match_fields', {'名称': '名称', '编号': '编码'})
+
+        # 构建shp索引
         shp_index = {}
+        shp_matched_keys = set()  # 记录已被附表匹配的shp记录
         for rec in shp_records:
-            code = str(rec.get('编号', '')).strip().upper()
-            name = str(rec.get('名称', '')).strip().upper()
-            key = f"{code}|{name}"
+            # 使用附表2的匹配字段构建索引
+            key_parts = []
+            for shp_field in match_fields2.keys():
+                val = str(rec.get(shp_field, '')).strip().upper()
+                key_parts.append(val)
+            key = '|'.join(key_parts)
             if key not in shp_index:
                 shp_index[key] = []
             shp_index[key].append(rec)
 
-        # 构建附表索引（尝试多种字段名）
-        fubiao_index = {}
-        for rec in all_fubiao_records:
-            # 尝试不同的编码字段名
-            code = ''
-            for field in ['编码', '编号', '代码']:
-                if field in rec:
-                    code = str(rec.get(field, '')).strip().upper()
-                    break
+        # 附表2匹配
+        if fubiao2_records and match_fields2:
+            shp_match_fields2 = list(match_fields2.keys())
+            fubiao_match_fields2 = list(match_fields2.values())
+            self.emit_progress(f"附表2匹配字段: shp[{', '.join(shp_match_fields2)}] <-> 附表[{', '.join(fubiao_match_fields2)}]")
 
-            name = ''
-            for field in ['名称', '隐患名称']:
-                if field in rec:
-                    name = str(rec.get(field, '')).strip().upper()
-                    break
+            for rec in fubiao2_records:
+                key_parts = []
+                for fb_field in fubiao_match_fields2:
+                    val = self._get_field_value(rec, fb_field)
+                    key_parts.append(val)
+                key = '|'.join(key_parts)
 
-            key = f"{code}|{name}"
-            if key not in fubiao_index:
-                fubiao_index[key] = []
-            fubiao_index[key].append(rec)
-
-        # 匹配成功的key
-        matched_keys = set()
-
-        # 检查附表记录是否在shp中
-        for key, recs in fubiao_index.items():
-            if key in shp_index:
-                matched_keys.add(key)
-                for rec in recs:
-                    result['matched'].append({
-                        'type': rec.get('_source_table', '附表2/3'),
+                if key in shp_index:
+                    result['fubiao2_matched'].append({
+                        'type': '附表2',
                         'fubiao_record': rec,
                         'shp_records': shp_index[key]
                     })
-            else:
-                for rec in recs:
-                    result['fubiao_only'].append(rec)
+                    shp_matched_keys.add(key)
+                else:
+                    result['fubiao2_only'].append(rec)
 
-        # 检查shp记录是否在附表中
-        for key, recs in shp_index.items():
-            if key not in fubiao_index:
-                for rec in recs:
+        # 附表3匹配
+        if fubiao3_records and match_fields3:
+            shp_match_fields3 = list(match_fields3.keys())
+            fubiao_match_fields3 = list(match_fields3.values())
+            self.emit_progress(f"附表3匹配字段: shp[{', '.join(shp_match_fields3)}] <-> 附表[{', '.join(fubiao_match_fields3)}]")
+
+            for rec in fubiao3_records:
+                key_parts = []
+                for fb_field in fubiao_match_fields3:
+                    val = self._get_field_value(rec, fb_field)
+                    key_parts.append(val)
+                key = '|'.join(key_parts)
+
+                if key in shp_index:
+                    result['fubiao3_matched'].append({
+                        'type': '附表3',
+                        'fubiao_record': rec,
+                        'shp_records': shp_index[key]
+                    })
+                    shp_matched_keys.add(key)
+                else:
+                    result['fubiao3_only'].append(rec)
+
+        # 找出未被任何附表匹配的shp记录
+        for key in shp_index.keys():
+            if key not in shp_matched_keys:
+                for rec in shp_index[key]:
                     result['shp_only'].append(rec)
 
-        result['match_count'] = len(result['matched'])
-        result['fubiao_only_count'] = len(result['fubiao_only'])
+        result['fubiao2_match_count'] = len(result['fubiao2_matched'])
+        result['fubiao2_only_count'] = len(result['fubiao2_only'])
+        result['fubiao3_match_count'] = len(result['fubiao3_matched'])
+        result['fubiao3_only_count'] = len(result['fubiao3_only'])
         result['shp_only_count'] = len(result['shp_only'])
 
-        self.emit_progress(f"匹配成功: {result['match_count']} 条")
-        self.emit_progress(f"仅附表有: {result['fubiao_only_count']} 条")
+        self.emit_progress(f"附表2匹配成功: {result['fubiao2_match_count']} 条, 仅附表2有: {result['fubiao2_only_count']} 条")
+        self.emit_progress(f"附表3匹配成功: {result['fubiao3_match_count']} 条, 仅附表3有: {result['fubiao3_only_count']} 条")
         self.emit_progress(f"仅shp有: {result['shp_only_count']} 条")
 
         return result
+
+    def _get_field_value(self, rec, field_name):
+        """获取记录中字段的值，支持模糊匹配"""
+        if field_name in rec:
+            return str(rec.get(field_name, '')).strip().upper()
+        # 尝试模糊匹配
+        for k in rec.keys():
+            if field_name in k or k in field_name:
+                return str(rec.get(k, '')).strip().upper()
+        return ''
 
     def validate_all(self) -> dict:
         """执行全部校验"""

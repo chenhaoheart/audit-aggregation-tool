@@ -169,21 +169,31 @@ class RenameFileApp(QWidget):
         replace_char = self.replace_char_entry.text()
         if folder_path:
             self.rename_files(folder_path, prefix, suffix, char_to_find, replace_char)
-            QMessageBox.information(self, "提示", "批量文件名修改完成！")
         else:
             QMessageBox.warning(self, "警告", "请选择要修改的文件夹！")
 
     # 修改文件名
     def rename_files(self, folder_path, prefix, suffix, char_to_find, replace_char):
-        # 遍历文件夹下的文件名
+        success_count = 0
+        error_count = 0
         for filename in os.listdir(folder_path):
             old_path = os.path.join(folder_path, filename)
-            # 判断是否是文件
             if os.path.isfile(old_path):
                 new_filename = f"{prefix}{filename}{suffix}"
-                # 判断是否需要进行文件替换操作
                 if char_to_find and replace_char:
-                    # 替换字符
                     new_filename = new_filename.replace(char_to_find, replace_char)
                 new_path = os.path.join(folder_path, new_filename)
-                os.rename(old_path, new_path)
+                if new_path == old_path:
+                    continue
+                if os.path.exists(new_path):
+                    error_count += 1
+                    continue
+                try:
+                    os.rename(old_path, new_path)
+                    success_count += 1
+                except Exception:
+                    error_count += 1
+        msg = f"批量文件名修改完成！成功: {success_count} 个"
+        if error_count > 0:
+            msg += f"，跳过: {error_count} 个（文件名冲突或权限不足）"
+        QMessageBox.information(self, "提示", msg)
