@@ -67,10 +67,12 @@ pyinstaller qh_dcpj.spec
 ## 检查规则详情
 
 ### 水系图层
+
 - 河流代码必须是17位
 - 河流代码不能重复
 
 ### 断面平面位置L.shp
+
 - 河流代码必须是17位
 - 河流代码、河流名称必须在水系中
 - 河流代码对应的河流名称必须与水系一致
@@ -80,12 +82,14 @@ pyinstaller qh_dcpj.spec
 - 断面名称格式：河流名称+CS+3位数字
 
 ### 防治对象分布P.shp
+
 - 河流代码必须是17位
 - 河流代码、河流名称必须在水系中
 - 河流代码对应的河流名称必须与水系一致
 - 代码字段不能重复
 
 ### 隐患要素分布L.shp
+
 - 河流代码必须是17位
 - 河流代码、河流名称必须在水系中
 - 河流代码对应的河流名称必须与水系一致
@@ -94,30 +98,49 @@ pyinstaller qh_dcpj.spec
 - 编号7-23位必须与河流代码一致
 - 编号字段不能重复
 
-
 ### 打包
+
 ## 1. 跳过 clean，使用缓存（推荐）
+
 ```
 python -m PyInstaller build.spec
+
+
 ```
+
 不加 --clean 会复用之前的缓存分析结果，大幅加快速度。
+
 ## 2. 调试模式先用 onedir
+
 单文件模式每次打包很慢。开发调试时用 --onedir 模式：
 
 ```
 python -m PyInstaller build.spec 
 --onedir
 ```
+
 然后直接运行 dist\空间数据检查工具\ 目录下的 exe 文件测试。
 
 ## 3. 最终发布再用单文件
+
 确认无误后，再打包成单文件：
 
 ```
 python -m PyInstaller build.spec 
 --onefile
-```
-## 4. 关键优化
-查看您的 build.spec，我发现 console=True 已改为 console=False （这是对的），但建议删除 runtime_hooks 中的 runtime_hook_encoding.py （如果不存在会报错）。
 
-最快的方式 ：如果 exe 已经在正常运行，下次只需要：
+
+python -m PyInstaller build.spec --clean
+```
+
+## 4. 关键优化
+
+查看您的 build.spec，我发现 console=True 已改为 console=False （这是对的），但建议删除 runtime\_hooks 中的 runtime\_hook\_encoding.py （如果不存在会报错）。
+
+最快的方式：如果 exe 已经在正常运行，下次只需要直接运行：
+
+```
+python -m PyInstaller build.spec
+```
+
+不加 `--clean` 参数会复用之前的缓存分析结果，大幅加快打包速度。

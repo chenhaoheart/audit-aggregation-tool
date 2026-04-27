@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f0f4f8; color: #1f2937; }
+  .container { display: flex; flex-direction: column; height: 100vh; }
+  .chart-row { display: flex; flex: 1; min-height: 0; }
+  .chart-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .chart-title { padding: 8px 12px; font-size: 13px; color: #6b7280; background: #f0f4f8; text-align: center; border-bottom: 1px solid rgba(200,200,200,0.35); }
+  .chart-body { flex: 1; min-height: 0; }
+  .water-legend { display: flex; gap: 12px; padding: 6px 16px; font-size: 11px; color: #6b7280; border-top: 1px solid rgba(200,200,200,0.35); flex-wrap: wrap; }
+  .water-legend .item { display: flex; align-items: center; gap: 4px; }
+  .water-legend .line { width: 20px; height: 2px; border-top: 2px dashed; }
+  .no-data { display: flex; align-items: center; justify-content: center; height: 100%; color: #9ca3af; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="chart-row">
+    <div class="chart-panel">
+      <div class="chart-title">断面形态 (起点距-高程)</div>
+      <div class="chart-body" id="sectionChart"></div>
+    </div>
+    <div class="chart-panel">
+      <div class="chart-title">测量点位置 (经度-纬度)</div>
+      <div class="chart-body" id="coordChart"></div>
+    </div>
+  </div>
+  <div class="water-legend" id="waterLegend"><div class="item"><div class="line" style="border-color:#f97316;"></div>历史最高水位 2744.34m</div><div class="item"><div class="line" style="border-color:#fb7185;"></div>成灾水位 2742.84m</div></div>
+</div>
+<script src="file:///D:/github/空间数据检查桌面版-主题-design/assets/js/echarts.min.js"></script>
+<script>
+var sectionData = {"animation": true, "animationDuration": 600, "grid": {"left": 70, "right": 20, "top": 20, "bottom": 45}, "tooltip": {"trigger": "axis", "backgroundColor": "rgba(255,255,255,0.92)", "borderColor": "rgba(200,200,200,0.40)", "textStyle": {"color": "#1f2937", "fontSize": 12}}, "xAxis": {"type": "value", "name": "起点距(m)", "nameLocation": "middle", "nameGap": 30, "nameTextStyle": {"color": "#6b7280", "fontSize": 10}, "axisLine": {"lineStyle": {"color": "rgba(200,200,200,0.50)"}}, "axisLabel": {"color": "#6b7280", "fontSize": 10}, "splitLine": {"lineStyle": {"color": "rgba(200,200,200,0.25)"}}}, "yAxis": {"type": "value", "name": "高程(m)", "nameLocation": "middle", "nameGap": 50, "nameTextStyle": {"color": "#6b7280", "fontSize": 10}, "axisLine": {"lineStyle": {"color": "rgba(200,200,200,0.50)"}}, "axisLabel": {"color": "#6b7280", "fontSize": 10}, "splitLine": {"lineStyle": {"color": "rgba(200,200,200,0.25)"}}, "min": 2752.42, "max": 2770.16}, "series": [{"type": "line", "name": "断面线", "data": [[0.0, 2765.371], [12.15, 2763.085], [30.24, 2760.045], [40.07, 2759.596], [48.11, 2759.909], [54.76, 2755.185], [56.41, 2754.899], [58.34, 2755.413], [60.98, 2755.406], [63.22, 2754.467], [65.31, 2754.888], [67.66, 2756.124], [69.81, 2762.358], [73.46, 2762.29], [77.2, 2762.437], [82.19, 2763.958], [87.17, 2764.14], [92.16, 2767.896], [97.14, 2768.117]], "smooth": false, "symbol": "circle", "symbolSize": 6, "lineStyle": {"color": "#e8a838", "width": 2}, "itemStyle": {"color": "#e8a838"}, "areaStyle": {"color": {"type": "linear", "x": 0, "y": 0, "x2": 0, "y2": 1, "colorStops": [{"offset": 0, "color": "rgba(232,168,56,0.25)"}, {"offset": 1, "color": "rgba(232,168,56,0.02)"}]}}, "markPoint": {"data": [{"coord": [0.0, 2765.371], "name": "#1.0 基点", "value": "#1.0", "itemStyle": {"color": "#fb7185"}, "symbolSize": 14}, {"coord": [54.76, 2755.185], "name": "#6.0 坡顶", "value": "#6.0", "itemStyle": {"color": "#fb7185"}, "symbolSize": 14}, {"coord": [63.22, 2754.467], "name": "#10.0 深泓点", "value": "#10.0", "itemStyle": {"color": "#fb7185"}, "symbolSize": 14}, {"coord": [69.81, 2762.358], "name": "#13.0 坡顶", "value": "#13.0", "itemStyle": {"color": "#fb7185"}, "symbolSize": 14}], "symbol": "circle", "label": {"show": true, "position": "top", "fontSize": 10, "color": "#fb7185", "formatter": "{b}"}}, "markLine": {"silent": true, "symbol": "none", "data": [{"yAxis": 2744.34, "name": "历史最高水位", "lineStyle": {"color": "#f97316", "type": "dashed", "width": 2}, "label": {"show": true, "formatter": "历史最高水位 2744.34m", "position": "insideEndTop", "color": "#f97316", "fontSize": 11}}, {"yAxis": 2742.84, "name": "成灾水位", "lineStyle": {"color": "#fb7185", "type": "dashed", "width": 2}, "label": {"show": true, "formatter": "成灾水位 2742.84m", "position": "insideEndTop", "color": "#fb7185", "fontSize": 11}}]}}], "dataZoom": [{"type": "inside", "xAxisIndex": 0, "filterMode": "none"}, {"type": "inside", "yAxisIndex": 0, "filterMode": "none"}]};
+var sectionDataPoints = [{"id": 302451, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 1.0, "feature_desc": "基点", "distance": 0.0, "elevation": 2765.371, "lon": 101.68261, "lat": 37.046045, "roughness": "0.13", "is_feature": 1, "isFeature": true}, {"id": 302452, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 2.0, "feature_desc": "耕地", "distance": 12.15, "elevation": 2763.085, "lon": 101.682473, "lat": 37.046043, "roughness": "0.13", "is_feature": 0, "isFeature": false}, {"id": 302453, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 3.0, "feature_desc": "耕地", "distance": 30.24, "elevation": 2760.045, "lon": 101.68227, "lat": 37.046049, "roughness": "0.13", "is_feature": 0, "isFeature": false}, {"id": 302454, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 4.0, "feature_desc": "加密", "distance": 40.07, "elevation": 2759.596, "lon": 101.68216, "lat": 37.04605, "roughness": "0.13", "is_feature": 0, "isFeature": false}, {"id": 302455, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 5.0, "feature_desc": "加密", "distance": 48.11, "elevation": 2759.909, "lon": 101.682069, "lat": 37.046054, "roughness": "0.13", "is_feature": 0, "isFeature": false}, {"id": 302456, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 6.0, "feature_desc": "坡顶", "distance": 54.76, "elevation": 2755.185, "lon": 101.681995, "lat": 37.046055, "roughness": "0.13", "is_feature": 1, "isFeature": true}, {"id": 302457, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 7.0, "feature_desc": "加密", "distance": 56.41, "elevation": 2754.899, "lon": 101.681976, "lat": 37.046058, "roughness": "0.13", "is_feature": 0, "isFeature": false}, {"id": 302458, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 8.0, "feature_desc": "加密", "distance": 58.34, "elevation": 2755.413, "lon": 101.681955, "lat": 37.046058, "roughness": "0.13", "is_feature": 0, "isFeature": false}, {"id": 302459, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 9.0, "feature_desc": "加密", "distance": 60.98, "elevation": 2755.406, "lon": 101.681925, "lat": 37.046058, "roughness": "0.13", "is_feature": 0, "isFeature": false}, {"id": 302460, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 10.0, "feature_desc": "深泓点", "distance": 63.22, "elevation": 2754.467, "lon": 101.6819, "lat": 37.046059, "roughness": "0.13", "is_feature": 1, "isFeature": true}, {"id": 302461, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 11.0, "feature_desc": "加密", "distance": 65.31, "elevation": 2754.888, "lon": 101.681876, "lat": 37.046058, "roughness": "0.13", "is_feature": 0, "isFeature": false}, {"id": 302462, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 12.0, "feature_desc": "加密", "distance": 67.66, "elevation": 2756.124, "lon": 101.68185, "lat": 37.046058, "roughness": "0.13", "is_feature": 0, "isFeature": false}, {"id": 302463, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 13.0, "feature_desc": "坡顶", "distance": 69.81, "elevation": 2762.358, "lon": 101.681826, "lat": 37.046062, "roughness": "0.13", "is_feature": 1, "isFeature": true}, {"id": 302464, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 14.0, "feature_desc": "耕地", "distance": 73.46, "elevation": 2762.29, "lon": 101.681785, "lat": 37.046062, "roughness": "0.13", "is_feature": 0, "isFeature": false}, {"id": 302465, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 15.0, "feature_desc": "耕地", "distance": 77.2, "elevation": 2762.437, "lon": 101.681743, "lat": 37.046064, "roughness": "0.13", "is_feature": 0, "isFeature": false}, {"id": 302466, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 16.0, "feature_desc": "耕地", "distance": 82.19, "elevation": 2763.958, "lon": 101.681687, "lat": 37.046066, "roughness": "0.13", "is_feature": 0, "isFeature": false}, {"id": 302467, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 17.0, "feature_desc": "耕地", "distance": 87.17, "elevation": 2764.14, "lon": 101.681631, "lat": 37.046067, "roughness": "0.13", "is_feature": 0, "isFeature": false}, {"id": 302468, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 18.0, "feature_desc": "耕地", "distance": 92.16, "elevation": 2767.896, "lon": 101.681575, "lat": 37.046068, "roughness": "0.13", "is_feature": 0, "isFeature": false}, {"id": 302469, "section_key": "防治对象|630121102213000_规范表_塔尔镇塔尔沟村.xlsx|ADA39101l00000002ACS100", "seq": 19.0, "feature_desc": "终点", "distance": 97.14, "elevation": 2768.117, "lon": 101.681519, "lat": 37.04607, "roughness": "0.13", "is_feature": 0, "isFeature": false}];
+var sectionDataName = "塔尔沟村_ADA39101l00000002ACS100";
+var coordData = {"animation": true, "animationDuration": 600, "grid": {"left": 70, "right": 20, "top": 20, "bottom": 45}, "tooltip": {"trigger": "item", "backgroundColor": "rgba(255,255,255,0.92)", "borderColor": "rgba(200,200,200,0.40)", "textStyle": {"color": "#1f2937", "fontSize": 12}}, "xAxis": {"type": "value", "name": "经度(°)", "nameLocation": "middle", "nameGap": 30, "nameTextStyle": {"color": "#6b7280", "fontSize": 10}, "axisLine": {"lineStyle": {"color": "rgba(200,200,200,0.50)"}}, "axisLabel": {"color": "#6b7280", "fontSize": 10}, "splitLine": {"lineStyle": {"color": "rgba(200,200,200,0.25)"}}, "min": 101.68141, "max": 101.682719}, "yAxis": {"type": "value", "name": "纬度(°)", "nameLocation": "middle", "nameGap": 50, "nameTextStyle": {"color": "#6b7280", "fontSize": 10}, "axisLine": {"lineStyle": {"color": "rgba(200,200,200,0.50)"}}, "axisLabel": {"color": "#6b7280", "fontSize": 10}, "splitLine": {"lineStyle": {"color": "rgba(200,200,200,0.25)"}}, "min": 37.04604, "max": 37.046073}, "series": [{"type": "line", "name": "测量轨迹", "data": [[101.68261, 37.046045], [101.682473, 37.046043], [101.68227, 37.046049], [101.68216, 37.04605], [101.682069, 37.046054], [101.681995, 37.046055], [101.681976, 37.046058], [101.681955, 37.046058], [101.681925, 37.046058], [101.6819, 37.046059], [101.681876, 37.046058], [101.68185, 37.046058], [101.681826, 37.046062], [101.681785, 37.046062], [101.681743, 37.046064], [101.681687, 37.046066], [101.681631, 37.046067], [101.681575, 37.046068], [101.681519, 37.04607]], "smooth": false, "symbol": "none", "lineStyle": {"color": "#22d3ee", "width": 2, "type": "solid"}, "tooltip": {"show": false}}, {"type": "scatter", "name": "测量点", "data": [{"value": [101.68261, 37.046045], "seq": 1.0, "distance": 0.0, "elevation": 2765.371, "feature": "基点", "isFeature": true, "itemStyle": {"color": "#fb7185"}}, {"value": [101.682473, 37.046043], "seq": 2.0, "distance": 12.15, "elevation": 2763.085, "feature": "耕地", "isFeature": false, "itemStyle": {"color": "#22d3ee"}}, {"value": [101.68227, 37.046049], "seq": 3.0, "distance": 30.24, "elevation": 2760.045, "feature": "耕地", "isFeature": false, "itemStyle": {"color": "#22d3ee"}}, {"value": [101.68216, 37.04605], "seq": 4.0, "distance": 40.07, "elevation": 2759.596, "feature": "加密", "isFeature": false, "itemStyle": {"color": "#22d3ee"}}, {"value": [101.682069, 37.046054], "seq": 5.0, "distance": 48.11, "elevation": 2759.909, "feature": "加密", "isFeature": false, "itemStyle": {"color": "#22d3ee"}}, {"value": [101.681995, 37.046055], "seq": 6.0, "distance": 54.76, "elevation": 2755.185, "feature": "坡顶", "isFeature": true, "itemStyle": {"color": "#fb7185"}}, {"value": [101.681976, 37.046058], "seq": 7.0, "distance": 56.41, "elevation": 2754.899, "feature": "加密", "isFeature": false, "itemStyle": {"color": "#22d3ee"}}, {"value": [101.681955, 37.046058], "seq": 8.0, "distance": 58.34, "elevation": 2755.413, "feature": "加密", "isFeature": false, "itemStyle": {"color": "#22d3ee"}}, {"value": [101.681925, 37.046058], "seq": 9.0, "distance": 60.98, "elevation": 2755.406, "feature": "加密", "isFeature": false, "itemStyle": {"color": "#22d3ee"}}, {"value": [101.6819, 37.046059], "seq": 10.0, "distance": 63.22, "elevation": 2754.467, "feature": "深泓点", "isFeature": true, "itemStyle": {"color": "#fb7185"}}, {"value": [101.681876, 37.046058], "seq": 11.0, "distance": 65.31, "elevation": 2754.888, "feature": "加密", "isFeature": false, "itemStyle": {"color": "#22d3ee"}}, {"value": [101.68185, 37.046058], "seq": 12.0, "distance": 67.66, "elevation": 2756.124, "feature": "加密", "isFeature": false, "itemStyle": {"color": "#22d3ee"}}, {"value": [101.681826, 37.046062], "seq": 13.0, "distance": 69.81, "elevation": 2762.358, "feature": "坡顶", "isFeature": true, "itemStyle": {"color": "#fb7185"}}, {"value": [101.681785, 37.046062], "seq": 14.0, "distance": 73.46, "elevation": 2762.29, "feature": "耕地", "isFeature": false, "itemStyle": {"color": "#22d3ee"}}, {"value": [101.681743, 37.046064], "seq": 15.0, "distance": 77.2, "elevation": 2762.437, "feature": "耕地", "isFeature": false, "itemStyle": {"color": "#22d3ee"}}, {"value": [101.681687, 37.046066], "seq": 16.0, "distance": 82.19, "elevation": 2763.958, "feature": "耕地", "isFeature": false, "itemStyle": {"color": "#22d3ee"}}, {"value": [101.681631, 37.046067], "seq": 17.0, "distance": 87.17, "elevation": 2764.14, "feature": "耕地", "isFeature": false, "itemStyle": {"color": "#22d3ee"}}, {"value": [101.681575, 37.046068], "seq": 18.0, "distance": 92.16, "elevation": 2767.896, "feature": "耕地", "isFeature": false, "itemStyle": {"color": "#22d3ee"}}, {"value": [101.681519, 37.04607], "seq": 19.0, "distance": 97.14, "elevation": 2768.117, "feature": "终点", "isFeature": false, "itemStyle": {"color": "#22d3ee"}}], "symbolSize": 8, "label": {"show": true, "position": "right", "color": "#6b7280", "fontSize": 10}, "itemStyle": {"borderColor": "#fff", "borderWidth": 1}}], "dataZoom": [{"type": "inside", "xAxisIndex": 0, "filterMode": "none"}, {"type": "inside", "yAxisIndex": 0, "filterMode": "none"}]};
+var retryCount = 0;
+
+function sectionTooltipFormatter(params) {
+  var p = params[0];
+  var idx = p.dataIndex;
+  var pt = sectionDataPoints[idx];
+  var html = '<b>' + sectionDataName + '</b><br/>';
+  html += '序号: #' + (pt.seq || (idx + 1)) + '<br/>';
+  html += '起点距: ' + pt.distance.toFixed(3) + ' m<br/>';
+  html += '高程: ' + pt.elevation.toFixed(3) + ' m';
+  if (pt.lon && pt.lat) {
+    html += '<br/>经度: ' + pt.lon.toFixed(6) + '°';
+    html += '<br/>纬度: ' + pt.lat.toFixed(6) + '°';
+  }
+  if (pt.feature_desc) html += '<br/>特征: ' + pt.feature_desc;
+  if (pt.isFeature) html += '<br/><span style="color:#fb7185;">★ 特征点</span>';
+  return html;
+}
+
+function coordTooltipFormatter(params) {
+  var d = params.data;
+  if (!d || !d.value) return '';
+  var html = '<b>测量点 #' + (d.seq || '?') + '</b><br/>';
+  html += '经度: ' + d.value[0].toFixed(6) + '°<br/>';
+  html += '纬度: ' + d.value[1].toFixed(6) + '°<br/>';
+  html += '起点距: ' + (d.distance || 0).toFixed(3) + ' m<br/>';
+  html += '高程: ' + (d.elevation || 0).toFixed(3) + ' m';
+  if (d.feature) html += '<br/>特征: ' + d.feature;
+  if (d.isFeature) html += '<br/><span style="color:#fb7185;">★ 特征点</span>';
+  return html;
+}
+
+function initCharts() {
+  if (typeof echarts === 'undefined') {
+    if (retryCount < 3) {
+      retryCount++;
+      document.getElementById('sectionChart').innerHTML = '<div class="no-data">ECharts 加载中... (重试 ' + retryCount + '/3)</div>';
+      setTimeout(initCharts, 1500);
+      return;
+    }
+    document.getElementById('sectionChart').innerHTML = '<div class="no-data">ECharts 加载失败，请检查网络连接或将 echarts.min.js 放到 assets/js/ 目录下</div>';
+    return;
+  }
+  var secDom = document.getElementById('sectionChart');
+  var coordDom = document.getElementById('coordChart');
+  if (!secDom || !coordDom) return;
+
+  var secChart = echarts.init(secDom, null, {renderer: 'canvas'});
+  if (sectionData.tooltip) {
+    sectionData.tooltip.formatter = sectionTooltipFormatter;
+  }
+  secChart.setOption(sectionData);
+
+  if (coordData.series && coordData.series.length > 0) {
+    var coordChart = echarts.init(coordDom, null, {renderer: 'canvas'});
+    if (coordData.tooltip) {
+      coordData.tooltip.formatter = coordTooltipFormatter;
+    }
+    if (coordData.series[1] && coordData.series[1].label) {
+      coordData.series[1].label.formatter = function(params) { return '#' + (params.data.seq || '?'); };
+    }
+    coordChart.setOption(coordData);
+  } else {
+    coordDom.innerHTML = '<div class="no-data">无经纬度数据</div>';
+  }
+
+  window.addEventListener('resize', function() {
+    secChart.resize();
+    try { coordChart && coordChart.resize(); } catch(e) {}
+  });
+}
+
+if (typeof echarts !== 'undefined') {
+  initCharts();
+} else {
+  document.getElementById('sectionChart').innerHTML = '<div class="no-data">ECharts 加载中...</div>';
+  var script = document.querySelector('script[src*="echarts"]');
+  if (script) {
+    script.onload = function() { retryCount = 0; initCharts(); };
+    script.onerror = function() {
+      var fallback = document.createElement('script');
+      fallback.src = 'https://registry.npmmirror.com/echarts/5.5.0/files/dist/echarts.min.js';
+      fallback.onload = function() { retryCount = 0; initCharts(); };
+      fallback.onerror = function() { initCharts(); };
+      document.head.appendChild(fallback);
+    };
+  }
+  setTimeout(initCharts, 3000);
+}
+</script>
+</body>
+</html>

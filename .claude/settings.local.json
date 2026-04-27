@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(python main.py)",
+      "Bash(pyinstaller build.spec --clean)",
+      "Bash(python -m PyInstaller build.spec --clean)",
+      "Bash(explorer \"d:\\\\qh-dcpj-py\\\\24青海断面数据整理检查脚本\\\\省平台断面汇总增强版\\\\空间数据检查桌面版\\\\dist\")",
+      "Bash(python test_read_shp.py)",
+      "Bash(python -m PyInstaller test_spec.py --clean)",
+      "Bash(./test_spec.exe)",
+      "Bash(python -c \"import fiona; import os; print\\(''fiona path:'', fiona.__file__\\); fiona_dir = os.path.dirname\\(fiona.__file__\\); print\\(''fiona dir contents:''\\); for f in os.listdir\\(fiona_dir\\): print\\(''  '', f\\)\")",
+      "Bash(python -c \"import fiona; import os; fiona_dir = os.path.dirname\\(fiona.__file__\\); print\\(fiona_dir\\)\")",
+      "Bash(python -c \":*)",
+      "Bash(python -m py_compile core/effects_manager.py core/theme_manager.py ui/main_window.py)",
+      "Bash(python -m py_compile ui/main_window.py)",
+      "Bash(python -m py_compile ui/report_page.py ui/shp_formatter_page.py core/theme_manager.py)",
+      "Bash(python -m py_compile ui/arcgis_config_dialog.py ui/field_mapping_dialog.py)",
+      "Bash(python -m py_compile ui/shp_formatter_page.py ui/arcgis_config_dialog.py ui/field_mapping_dialog.py)",
+      "Bash(python -c \"from ui.main_window import MainWindow; print\\('Import successful'\\)\")",
+      "Bash(python -c ':*)",
+      "Bash(python -m py_compile core/theme_manager.py)",
+      "Bash(start python:*)",
+      "Bash(bash scripts/env_check.sh)",
+      "Bash(pip show:*)",
+      "Bash(pip install:*)",
+      "Bash(python create_usage_doc.py)",
+      "Bash(explorer D:\\\\qh-dcpj-py\\\\空间数据检查桌面版-主题\\\\dist:*)",
+      "Bash(python:*)",
+      "Bash(npm install:*)",
+      "Bash(node compile.js)",
+      "Bash(npm init:*)",
+      "Bash(explorer D:\\\\qh-dcpj-py\\\\空间数据检查桌面版-主题\\\\docs:*)",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('/d/qh-dcpj-py/空间数据检查桌面版-主题-design/config/themes/dark.json'\\)\\); print\\(f'Keys: {len\\(d[\\\\\"colors\\\\\"]\\)}'\\); print\\(f'Name: {d[\\\\\"name\\\\\"]}'\\)\")",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('/d/qh-dcpj-py/空间数据检查桌面版-主题-design/config/themes/light.json'\\)\\); print\\(f'Keys: {len\\(d[\\\\\"colors\\\\\"]\\)}'\\); print\\(f'Name: {d[\\\\\"name\\\\\"]}'\\)\")",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('/d/qh-dcpj-py/空间数据检查桌面版-主题-design/config/themes/qwen.json'\\)\\); print\\(f'Keys: {len\\(d[\\\\\"colors\\\\\"]\\)}'\\); print\\(f'Name: {d[\\\\\"name\\\\\"]}'\\)\")",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\('/d/qh-dcpj-py/空间数据检查桌面版-主题-design/config/themes/glass.json'\\)\\); print\\(f'Keys: {len\\(d[\\\\\"colors\\\\\"]\\)}'\\); print\\(f'Name: {d[\\\\\"name\\\\\"]}'\\)\")",
+      "Bash(wc -l core/theme_manager.py core/stylesheet/__init__.py core/stylesheet/sections/*.py)",
+      "Bash(grep:*)",
+      "Bash(start \"\" \"docs/dashboard/index.html\")"
+    ]
+  }
+}

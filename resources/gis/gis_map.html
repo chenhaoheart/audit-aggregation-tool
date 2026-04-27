@@ -1,0 +1,832 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GIS Map</title>
+<link rel="stylesheet" href="leaflet.css"/>
+<link rel="stylesheet" href="leaflet.draw.css"/>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body, #map { width: 100%; height: 100%; overflow: hidden; }
+  .leaflet-container { background: #e8ecef; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+
+  .layer-panel {
+    position: absolute; top: 10px; right: 10px; z-index: 1000;
+    background: rgba(255,255,255,0.95); border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15); padding: 12px 14px;
+    min-width: 180px; max-height: 400px; overflow-y: auto;
+    font-size: 13px;
+  }
+  .layer-panel h4 { margin: 0 0 8px 0; font-size: 14px; color: #1f2937; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
+  .layer-item { display: flex; align-items: center; padding: 4px 0; gap: 8px; }
+  .layer-item input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: #6366f1; }
+  .layer-item label { cursor: pointer; color: #374151; font-size: 13px; }
+  .layer-color { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+  .feature-popup { font-size: 13px; }
+  .feature-popup table { border-collapse: collapse; width: 100%; }
+  .feature-popup th, .feature-popup td { padding: 3px 8px; border: 1px solid #e5e7eb; text-align: left; }
+  .feature-popup th { background: #f3f4f6; color: #374151; font-weight: 600; white-space: nowrap; }
+  .feature-popup td { color: #1f2937; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .photo-card-popup { font-size: 13px; min-width: 320px; max-width: 480px; }
+  .photo-card-popup .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #e5e7eb; }
+  .photo-card-popup .card-type { background: #6366f1; color: white; padding: 3px 10px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
+  .photo-card-popup .card-type.type-f3 { background: #10b981; }
+  .photo-card-popup .card-title { font-size: 15px; font-weight: 600; color: #1f2937; }
+  .photo-card-popup .card-code { font-size: 12px; color: #6b7280; margin-left: auto; }
+  .photo-card-popup .card-info { font-size: 13px; color: #4b5563; margin-bottom: 10px; line-height: 1.6; }
+  .photo-card-popup .card-photos { display: flex; flex-wrap: wrap; gap: 6px; }
+  .photo-card-popup .photo-thumb { width: 96px; height: 96px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid #e5e7eb; transition: all 0.15s; }
+  .photo-card-popup .photo-thumb:hover { transform: scale(1.1); border-color: #6366f1; box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
+
+  .status-bar {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 1000;
+    background: rgba(255,255,255,0.9); padding: 4px 12px;
+    font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb;
+    display: flex; justify-content: space-between;
+  }
+
+  .toolbar {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1000;
+    display: none;
+    flex-wrap: wrap; justify-content: center; gap: 4px;
+    max-width: 90%;
+  }
+  .toolbar .btn-group {
+    background: rgba(243,244,246,0.95); border-radius: 4px;
+    display: inline-flex; gap: 1px; padding: 1px 2px;
+  }
+  .toolbar button {
+    background: transparent; border: none; border-radius: 2px;
+    padding: 3px 0px; font-size: 12px; cursor: pointer;
+    color: #374151; transition: all 0.15s; white-space: nowrap; min-width: 32px;
+  }
+  .toolbar button:hover { background: #6366f1; color: white; }
+  .toolbar button.active { background: #6366f1; color: white; }
+
+  .edit-info {
+    position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 1000;
+    background: rgba(99,102,241,0.9); color: white; padding: 6px 16px;
+    border-radius: 20px; font-size: 13px; display: none;
+  }
+
+  .selected-highlight {
+    color: #6366f1 !important;
+    weight: 4 !important;
+    opacity: 1 !important;
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="toolbar">
+  <span class="btn-group">
+    <button onclick="fitBounds()" title="适应所有图层">适应</button>
+    <button onclick="clearAll()" title="清除所有图层">清除</button>
+  </span>
+  <span class="btn-group">
+    <button onclick="startDrawPoint()" title="绘制点" id="btnDrawPoint">点</button>
+    <button onclick="startDrawLine()" title="绘制线" id="btnDrawLine">线</button>
+    <button onclick="startDrawPolygon()" title="绘制面" id="btnDrawPolygon">面</button>
+    <button onclick="toggleEditGeometry()" title="编辑几何" id="btnEditGeom">编辑</button>
+    <button onclick="stopDraw()" title="取消" id="btnStopDraw" style="display:none;">取消</button>
+  </span>
+</div>
+
+<div class="layer-panel" id="layerPanel">
+  <h4>&#128225; 图层管理</h4>
+  <div id="layerList"></div>
+</div>
+
+<div class="status-bar">
+  <span id="coordInfo">经度: -- | 纬度: --</span>
+  <span id="featureCount">要素: 0</span>
+</div>
+
+<div class="edit-info" id="editInfo">编辑模式已开启 - 点击要素进行编辑</div>
+
+<script src="leaflet.js"></script>
+<script src="leaflet.draw.js"></script>
+<script src="qwebchannel.js"></script>
+<script>
+var qtBridge = null;
+new QWebChannel(qt.webChannelTransport, function(channel) {
+  qtBridge = channel.objects.qtBridge;
+});
+</script>
+<script>
+var TK = '{TIANDITU_KEY}';
+var map = L.map('map', { zoomControl: false }).setView([36.5, 101.5], 7);
+
+map.createPane('polygonPane');
+map.getPane('polygonPane').style.zIndex = 410;
+map.createPane('linePane');
+map.getPane('linePane').style.zIndex = 420;
+map.createPane('pointPane');
+map.getPane('pointPane').style.zIndex = 430;
+
+var tdtLoadErrors = { img: false, vec: false, ter: false };
+
+function logMapError(layerType, error) {
+  tdtLoadErrors[layerType] = true;
+  console.error('天地图 ' + layerType + ' 加载失败:', error);
+  if (qtBridge) {
+    qtBridge.onMapError('天地图 ' + layerType + ' 加载失败: ' + error);
+  }
+}
+
+var tdtImg = L.tileLayer('https://t{s}.tianditu.gov.cn/img_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=img&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}&tk='+TK, { 
+  subdomains: ['0','1','2','3','4','5','6','7'], 
+  maxZoom: 18,
+  errorTileUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2Ij48cmVjdCB3aWR0aD0iMjU2IiBoZWlnaHQ9IjI1NiIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+5aSx5pWw5a2mPC90ZXh0Pjwvc3ZnPg=='
+}).on('tileerror', function(error) { logMapError('img', error.tile.src); });
+
+var tdtImgLabel = L.tileLayer('https://t{s}.tianditu.gov.cn/cia_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cia&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}&tk='+TK, { 
+  subdomains: ['0','1','2','3','4','5','6','7'], 
+  maxZoom: 18,
+  errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+}).on('tileerror', function(error) { logMapError('imgLabel', error.tile.src); });
+
+var tdtVec = L.tileLayer('https://t{s}.tianditu.gov.cn/vec_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=vec&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}&tk='+TK, { 
+  subdomains: ['0','1','2','3','4','5','6','7'], 
+  maxZoom: 18,
+  errorTileUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2Ij48cmVjdCB3aWR0aD0iMjU2IiBoZWlnaHQ9IjI1NiIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+5aSx5pWw5a2mPC90ZXh0Pjwvc3ZnPg=='
+}).on('tileerror', function(error) { logMapError('vec', error.tile.src); });
+
+var tdtVecLabel = L.tileLayer('https://t{s}.tianditu.gov.cn/cva_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cva&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}&tk='+TK, { 
+  subdomains: ['0','1','2','3','4','5','6','7'], 
+  maxZoom: 18,
+  errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+}).on('tileerror', function(error) { logMapError('vecLabel', error.tile.src); });
+
+var tdtTer = L.tileLayer('https://t{s}.tianditu.gov.cn/ter_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ter&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}&tk='+TK, { 
+  subdomains: ['0','1','2','3','4','5','6','7'], 
+  maxZoom: 18,
+  errorTileUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNTYiIGhlaWdodD0iMjU2Ij48cmVjdCB3aWR0aD0iMjU2IiBoZWlnaHQ9IjI1NiIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+5aSx5pWw5a2mPC90ZXh0Pjwvc3ZnPg=='
+}).on('tileerror', function(error) { logMapError('ter', error.tile.src); });
+
+var tdtTerLabel = L.tileLayer('https://t{s}.tianditu.gov.cn/cta_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cta&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}&tk='+TK, { 
+  subdomains: ['0','1','2','3','4','5','6','7'], 
+  maxZoom: 18,
+  errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+}).on('tileerror', function(error) { logMapError('terLabel', error.tile.src); });
+
+tdtImg.addTo(map);
+tdtImgLabel.addTo(map);
+
+var baseLayers = {
+  '天地图影像': tdtImg,
+  '天地图矢量': tdtVec,
+  '天地图地形': tdtTer,
+  '无底图': L.tileLayer('', { maxZoom: 19 })
+};
+
+L.control.layers(baseLayers, null, { position: 'topleft' }).addTo(map);
+
+map.on('baselayerchange', function(e) {
+  map.removeLayer(tdtImgLabel);
+  map.removeLayer(tdtVecLabel);
+  map.removeLayer(tdtTerLabel);
+  if (e.name === '天地图影像') {
+    map.addLayer(tdtImgLabel);
+  } else if (e.name === '天地图矢量') {
+    map.addLayer(tdtVecLabel);
+  } else if (e.name === '天地图地形') {
+    map.addLayer(tdtTerLabel);
+  }
+});
+
+var layers = {};
+var layerMeta = {};
+var drawnItems = new L.FeatureGroup();
+var editMode = false;
+var totalFeatures = 0;
+var selectedLayerId = null;
+var selectedFeatureId = null;
+var featureIndex = {};
+
+map.on('mousemove', function(e) {
+  document.getElementById('coordInfo').textContent =
+    '经度: ' + e.latlng.lng.toFixed(6) + ' | 纬度: ' + e.latlng.lat.toFixed(6);
+});
+
+function addGeoJSON(layerId, geojsonData, options) {
+  if (!geojsonData) return;
+
+  var defaultStyle = {
+    color: options.color || '#6366f1',
+    weight: 2,
+    opacity: 0.8,
+    fillColor: options.fillColor || options.color || '#6366f1',
+    fillOpacity: options.fillOpacity || 0.3
+  };
+
+  var highlightStyle = {
+    color: '#f59e0b',
+    weight: 3,
+    opacity: 1,
+    fillColor: '#f59e0b',
+    fillOpacity: 0.5
+  };
+
+  var selectedStyle = {
+    color: '#6366f1',
+    weight: 4,
+    opacity: 1,
+    fillColor: '#6366f1',
+    fillOpacity: 0.6
+  };
+
+  function getPaneForGeometry(geometryType) {
+    if (geometryType === 'Point' || geometryType === 'MultiPoint') {
+      return 'pointPane';
+    } else if (geometryType === 'LineString' || geometryType === 'MultiLineString') {
+      return 'linePane';
+    } else if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
+      return 'polygonPane';
+    }
+    return 'overlayPane';
+  }
+
+  var firstGeomType = null;
+  if (geojsonData.features && geojsonData.features.length > 0) {
+    firstGeomType = geojsonData.features[0].geometry.type;
+  }
+  var paneName = getPaneForGeometry(firstGeomType);
+
+  var layer = L.geoJSON(geojsonData, {
+    pane: paneName,
+    style: function(feature) {
+      var style = Object.assign({}, defaultStyle);
+      if (feature.properties && feature.properties._status === '不通过') {
+        style.color = '#ef4444';
+        style.fillColor = '#ef4444';
+      }
+      return style;
+    },
+    pointToLayer: function(feature, latlng) {
+      if (feature.properties && feature.properties._popup_type === 'photo_card') {
+        var label = feature.properties._type_label || '';
+        var iconText = label.indexOf('桥涵') >= 0 ? '桥' : '沟';
+        return L.marker(latlng, {
+          pane: 'pointPane',
+          icon: L.divIcon({
+            className: 'fubiao-marker',
+            html: '<div style="background:' + defaultStyle.color + ';width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;">' + iconText + '</div>',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14]
+          })
+        });
+      }
+      return L.circleMarker(latlng, {
+        pane: 'pointPane',
+        radius: 6,
+        color: defaultStyle.color,
+        fillColor: defaultStyle.fillColor,
+        fillOpacity: defaultStyle.fillOpacity,
+        weight: 2
+      });
+    },
+    onEachFeature: function(feature, layer) {
+      var fid = feature.id !== undefined ? feature.id : feature.properties.id;
+      if (!featureIndex[layerId]) featureIndex[layerId] = {};
+      featureIndex[layerId][fid] = layer;
+
+      if (feature.properties) {
+        var popupContent = buildPopupContent(feature.properties);
+        var popupOpts = { maxWidth: 400, className: 'feature-popup' };
+        if (feature.properties._popup_type === 'photo_card') {
+          popupOpts = { maxWidth: 350, minWidth: 220, className: 'feature-popup' };
+        }
+        layer.bindPopup(popupContent, popupOpts);
+
+        var origStyle = Object.assign({}, defaultStyle);
+        if (feature.properties._status === '不通过') {
+          origStyle.color = '#ef4444';
+          origStyle.fillColor = '#ef4444';
+        }
+
+        layer.on('mouseover', function() {
+          if (!editMode && !(selectedLayerId === layerId && selectedFeatureId === fid)) {
+            if (layer.setStyle) layer.setStyle(highlightStyle);
+          }
+        });
+        layer.on('mouseout', function() {
+          if (!editMode && !(selectedLayerId === layerId && selectedFeatureId === fid)) {
+            if (layer.setStyle) layer.setStyle(origStyle);
+          }
+        });
+        layer.on('click', function(e) {
+          selectFeature(layerId, fid);
+          if (qtBridge) {
+            var coords = null;
+            if (feature.geometry.type === 'Point') {
+              coords = feature.geometry.coordinates;
+            }
+            var propsForBridge = {};
+            for (var key in feature.properties) {
+              if (key !== '_photos') {
+                propsForBridge[key] = feature.properties[key];
+              }
+            }
+            qtBridge.onFeatureClicked(layerId, JSON.stringify(propsForBridge), coords ? JSON.stringify(coords) : null);
+          }
+        });
+      }
+      totalFeatures++;
+    }
+  });
+
+  if (layers[layerId]) {
+    map.removeLayer(layers[layerId]);
+  }
+  layers[layerId] = layer;
+  layerMeta[layerId] = {
+    name: options.name || layerId,
+    color: options.color || '#6366f1',
+    visible: true,
+    featureCount: Object.keys(layer._layers).length
+  };
+
+  layer.addTo(map);
+  updateLayerPanel();
+  updateFeatureCount();
+
+  return layer;
+}
+
+function selectFeature(layerId, featureId) {
+  deselectAll();
+  selectedLayerId = layerId;
+  selectedFeatureId = featureId;
+  var layer = featureIndex[layerId] && featureIndex[layerId][featureId];
+  if (layer) {
+    layer.setStyle({color: '#6366f1', weight: 4, opacity: 1, fillColor: '#6366f1', fillOpacity: 0.6});
+    if (layer.getLatLng) {
+      map.panTo(layer.getLatLng());
+    }
+  }
+}
+
+function deselectAll() {
+  if (selectedLayerId && selectedFeatureId) {
+    var layer = featureIndex[selectedLayerId] && featureIndex[selectedLayerId][selectedFeatureId];
+    if (layer && layers[selectedLayerId]) {
+      layers[selectedLayerId].resetStyle(layer);
+    }
+  }
+  selectedLayerId = null;
+  selectedFeatureId = null;
+}
+
+function highlightFeature(layerId, featureId) {
+  selectFeature(layerId, featureId);
+}
+
+function locateFeature(layerId, featureId) {
+  var layer = featureIndex[layerId] && featureIndex[layerId][featureId];
+  if (layer) {
+    selectFeature(layerId, featureId);
+    if (layer.getBounds) {
+      map.fitBounds(layer.getBounds(), {padding: [60, 60], maxZoom: 16});
+    } else if (layer.getLatLng) {
+      map.setView(layer.getLatLng(), 16);
+    }
+    if (layer.openPopup) layer.openPopup();
+  }
+}
+
+function deleteFeature(layerId, featureId) {
+  var layer = featureIndex[layerId] && featureIndex[layerId][featureId];
+  if (layer) {
+    map.removeLayer(layer);
+    delete featureIndex[layerId][featureId];
+    if (layers[layerId]) {
+      var geojson = layers[layerId].toGeoJSON();
+      var newFeatures = [];
+      for (var i = 0; i < geojson.features.length; i++) {
+        if (geojson.features[i].id !== featureId) {
+          newFeatures.push(geojson.features[i]);
+        }
+      }
+      geojson.features = newFeatures;
+      layerMeta[layerId].geojson = geojson;
+    }
+    deselectAll();
+    if (qtBridge && qtBridge.onFeatureDeleted) {
+      qtBridge.onFeatureDeleted(layerId, featureId);
+    }
+    return true;
+  }
+  return false;
+}
+
+function buildPopupContent(props) {
+  if (props._popup_type === 'photo_card') {
+    return buildPhotoCardPopup(props);
+  }
+  var filtered = {};
+  var skipKeys = ['_original_columns', '_status', '_popup_type', '_photos', '_type_label'];
+  for (var key in props) {
+    if (skipKeys.indexOf(key) === -1 && props[key] !== null && props[key] !== undefined) {
+      filtered[key] = props[key];
+    }
+  }
+  var html = '<table>';
+  for (var key in filtered) {
+    var val = String(filtered[key]);
+    if (val.length > 50) val = val.substring(0, 50) + '...';
+    html += '<tr><th>' + key + '</th><td>' + val + '</td></tr>';
+  }
+  html += '</table>';
+  return html;
+}
+
+function buildPhotoCardPopup(props) {
+  var isF3 = (props._type_label || '').indexOf('附表3') >= 0;
+  var typeClass = isF3 ? ' type-f3' : '';
+  var html = '<div class="photo-card-popup">';
+  html += '<div class="card-header">';
+  html += '<span class="card-type' + typeClass + '">' + (props._type_label || '') + '</span>';
+  html += '<span class="card-title">' + (props.name || '') + '</span>';
+  html += '<span class="card-code">' + (props.code || '') + '</span>';
+  html += '</div>';
+  html += '<div class="card-info">';
+  if (props.river_name) html += '<div>河流: ' + props.river_name + '</div>';
+  if (props.river_code) html += '<div>河流代码: ' + props.river_code + '</div>';
+  if (props.longitude && props.latitude) html += '<div>坐标: ' + props.longitude + ', ' + props.latitude + '</div>';
+  html += '</div>';
+  if (props._photos && props._photos.length > 0) {
+    html += '<div class="card-photos">';
+    for (var i = 0; i < props._photos.length; i++) {
+      var photo = props._photos[i];
+      html += '<img src="data:image/jpeg;base64,' + photo.data + '" class="photo-thumb" data-path="' + photo.path + '" onclick="onPhotoThumbClick(this)" title="' + photo.name + '"/>';
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function onPhotoThumbClick(img) {
+  var path = img.getAttribute('data-path');
+  if (qtBridge && qtBridge.onPhotoClicked) {
+    qtBridge.onPhotoClicked(path);
+  }
+}
+
+function updateLayerPanel() {
+  var container = document.getElementById('layerList');
+  container.innerHTML = '';
+  for (var id in layerMeta) {
+    var meta = layerMeta[id];
+    var div = document.createElement('div');
+    div.className = 'layer-item';
+    div.innerHTML =
+      '<input type="checkbox" id="cb_' + id + '" ' + (meta.visible ? 'checked' : '') +
+      ' onchange="toggleLayer(\'' + id + '\', this.checked)"/>' +
+      '<span class="layer-color" style="background:' + meta.color + '"></span>' +
+      '<label for="cb_' + id + '">' + meta.name + ' (' + meta.featureCount + ')</label>';
+    container.appendChild(div);
+  }
+}
+
+function toggleLayer(layerId, visible) {
+  if (layers[layerId]) {
+    if (visible) {
+      layers[layerId].addTo(map);
+    } else {
+      map.removeLayer(layers[layerId]);
+    }
+    layerMeta[layerId].visible = visible;
+  }
+}
+
+function fitBounds() {
+  var allBounds = L.latLngBounds();
+  for (var id in layers) {
+    if (layerMeta[id] && layerMeta[id].visible && layers[id]) {
+      var bounds = layers[id].getBounds();
+      if (bounds.isValid()) {
+        allBounds.extend(bounds);
+      }
+    }
+  }
+  if (allBounds.isValid()) {
+    map.fitBounds(allBounds, { padding: [40, 40] });
+  }
+}
+
+function toggleEdit() {
+  editMode = !editMode;
+  var info = document.getElementById('editInfo');
+  if (editMode) {
+    info.style.display = 'block';
+  } else {
+    info.style.display = 'none';
+  }
+}
+
+function setEditMode(enabled) {
+  editMode = enabled;
+  var info = document.getElementById('editInfo');
+  if (editMode) {
+    info.style.display = 'block';
+  } else {
+    info.style.display = 'none';
+    stopDraw();
+  }
+}
+
+function clearAll() {
+  for (var id in layers) {
+    map.removeLayer(layers[id]);
+  }
+  layers = {};
+  layerMeta = {};
+  totalFeatures = 0;
+  drawnItems.clearLayers();
+  updateLayerPanel();
+  updateFeatureCount();
+}
+
+function removeLayer(layerId) {
+  if (layers[layerId]) {
+    map.removeLayer(layers[layerId]);
+    delete layers[layerId];
+    delete layerMeta[layerId];
+    totalFeatures = 0;
+    for (var id in layers) {
+      totalFeatures += Object.keys(layers[id]._layers).length;
+    }
+    updateLayerPanel();
+    updateFeatureCount();
+  }
+}
+
+function updateFeatureCount() {
+  document.getElementById('featureCount').textContent = '要素: ' + totalFeatures;
+}
+
+// ========== 绘制功能 ==========
+var drawControl = null;
+var currentDrawHandler = null;
+var editingLayer = null;
+var editingLayerOriginalGeojson = null;
+var drawnFeatures = new L.FeatureGroup();
+var selectedDrawnFeature = null;
+var targetLayerId = null;
+var targetGeomType = null;
+map.addLayer(drawnFeatures);
+
+function setTargetLayer(layerId, geomType) {
+  targetLayerId = layerId;
+  targetGeomType = geomType;
+}
+
+function getTargetLayerInfo() {
+  return {layerId: targetLayerId, geomType: targetGeomType};
+}
+
+function startDrawPoint() {
+  stopDraw();
+  currentDrawHandler = new L.Draw.Marker(map, {
+    icon: L.divIcon({className: 'custom-marker', html: '<div style="background:#6366f1;width:12px;height:12px;border-radius:50%;border:2px solid white;"></div>', iconSize: [12,12]})
+  });
+  map.on('draw:created', onDrawCreated);
+  currentDrawHandler.enable();
+  showStopButton();
+  highlightButton('btnDrawPoint');
+  showEditInfo('点击地图添加点');
+}
+
+function startDrawLine() {
+  stopDraw();
+  currentDrawHandler = new L.Draw.Polyline(map, {
+    shapeOptions: {color: '#f59e0b', weight: 3, opacity: 0.8}
+  });
+  map.on('draw:created', onDrawCreated);
+  currentDrawHandler.enable();
+  showStopButton();
+  highlightButton('btnDrawLine');
+  showEditInfo('点击添加节点，双击结束');
+}
+
+function startDrawPolygon() {
+  stopDraw();
+  currentDrawHandler = new L.Draw.Polygon(map, {
+    shapeOptions: {color: '#22c55e', weight: 2, fillColor: '#22c55e', fillOpacity: 0.3}
+  });
+  map.on('draw:created', onDrawCreated);
+  currentDrawHandler.enable();
+  showStopButton();
+  highlightButton('btnDrawPolygon');
+  showEditInfo('点击添加节点，双击结束');
+}
+
+function toggleEditGeometry() {
+  if (editingLayer) {
+    editingLayer.editing.disable();
+    editingLayer = null;
+    editingLayerOriginalGeojson = null;
+    showEditInfo(null);
+    unhighlightButton('btnEditGeom');
+  } else {
+    if (selectedLayerId && selectedFeatureId) {
+      var layer = featureIndex[selectedLayerId] && featureIndex[selectedLayerId][selectedFeatureId];
+      if (layer && layer.editing) {
+        editingLayer = layer;
+        editingLayerOriginalGeojson = layer.toGeoJSON();
+        editingLayerOriginalGeojson.id = selectedFeatureId;
+        layer.editing.enable();
+        highlightButton('btnEditGeom');
+        showEditInfo('拖动节点编辑几何，点击地图其他位置完成编辑');
+        
+        layer.on('edit', function(e) {
+          if (qtBridge) {
+            var geojson = layer.toGeoJSON();
+            geojson.id = selectedFeatureId;
+            qtBridge.onFeatureEdited(JSON.stringify([{layerId: selectedLayerId, feature: geojson}]));
+          }
+          editingLayerOriginalGeojson = layer.toGeoJSON();
+          editingLayerOriginalGeojson.id = selectedFeatureId;
+        });
+      } else {
+        showEditInfo('请先选择一个要素');
+      }
+    } else {
+      showEditInfo('请先在属性表中选择一个要素');
+    }
+  }
+}
+
+function stopDraw() {
+  if (currentDrawHandler) {
+    currentDrawHandler.disable();
+    currentDrawHandler = null;
+  }
+  map.off('draw:created');
+  
+  if (editingLayer && editingLayerOriginalGeojson) {
+    editingLayer.editing.disable();
+    var layerId = selectedLayerId;
+    var featureId = selectedFeatureId;
+    if (layers[layerId]) {
+      var geojson = editingLayerOriginalGeojson;
+      var coords = geojson.geometry.coordinates;
+      if (geojson.geometry.type === 'Point') {
+        editingLayer.setLatLng(L.latLng(coords[1], coords[0]));
+      } else if (geojson.geometry.type === 'LineString' || geojson.geometry.type === 'MultiLineString') {
+        editingLayer.setLatLngs(coordsToLatLngs(coords));
+      } else if (geojson.geometry.type === 'Polygon' || geojson.geometry.type === 'MultiPolygon') {
+        editingLayer.setLatLngs(coordsToLatLngs(coords));
+      }
+    }
+    editingLayer = null;
+    editingLayerOriginalGeojson = null;
+  }
+  
+  hideStopButton();
+  unhighlightAllButtons();
+  showEditInfo(null);
+}
+
+function coordsToLatLngs(coords) {
+  if (!coords || coords.length === 0) return [];
+  if (typeof coords[0] === 'number') {
+    return L.latLng(coords[1], coords[0]);
+  }
+  return coords.map(function(c) { return coordsToLatLngs(c); });
+}
+
+function onDrawCreated(e) {
+  var layer = e.layer;
+  var type = e.layerType;
+  
+  var geojson = layer.toGeoJSON();
+  var fid = 'new_' + Date.now();
+  geojson.id = fid;
+  geojson.properties = {id: fid, type: type, created_at: new Date().toISOString()};
+  
+  if (targetLayerId && layers[targetLayerId]) {
+    var targetLayer = layers[targetLayerId];
+    targetLayer.addData(geojson);
+    
+    var addedLayer = null;
+    targetLayer.eachLayer(function(l) {
+      if (l.feature && l.feature.id === fid) {
+        addedLayer = l;
+      }
+    });
+    
+    if (addedLayer) {
+      if (!featureIndex[targetLayerId]) featureIndex[targetLayerId] = {};
+      featureIndex[targetLayerId][fid] = addedLayer;
+      
+      addedLayer.on('click', function() {
+        selectFeature(targetLayerId, fid);
+        if (qtBridge) {
+          var coords = null;
+          if (geojson.geometry.type === 'Point') {
+            coords = geojson.geometry.coordinates;
+          }
+          qtBridge.onFeatureClicked(targetLayerId, JSON.stringify(geojson.properties), coords ? JSON.stringify(coords) : null);
+        }
+      });
+      
+      layerMeta[targetLayerId].featureCount = Object.keys(featureIndex[targetLayerId]).length;
+      updateLayerPanel();
+    }
+    
+    if (qtBridge) {
+      qtBridge.onFeatureAddedToLayer(JSON.stringify({layerId: targetLayerId, feature: geojson}));
+    }
+    
+    showEditInfo('已添加要素到图层: ' + (layerMeta[targetLayerId] ? layerMeta[targetLayerId].name : targetLayerId));
+  } else {
+    drawnFeatures.addLayer(layer);
+    
+    layer.on('click', function() {
+      selectDrawnFeature(layer);
+    });
+    
+    if (qtBridge) {
+      qtBridge.onFeatureCreated(JSON.stringify(geojson));
+    }
+    
+    showEditInfo('已创建要素（临时存储），点击"保存"按钮导出到SHP文件');
+  }
+  
+  totalFeatures++;
+  updateFeatureCount();
+  stopDraw();
+}
+
+function selectDrawnFeature(layer) {
+  if (selectedDrawnFeature) {
+    selectedDrawnFeature.setStyle({color: '#f59e0b', weight: 2, opacity: 0.8});
+  }
+  selectedDrawnFeature = layer;
+  if (layer.setStyle) {
+    layer.setStyle({color: '#ef4444', weight: 3, opacity: 1});
+  }
+  showEditInfo('已选中绘制要素 - 点击删除按钮删除，或点击保存按钮导出');
+}
+
+function deleteSelectedDrawnFeature() {
+  if (!selectedDrawnFeature) {
+    showEditInfo('请先点击选中一个绘制要素');
+    return;
+  }
+  
+  drawnFeatures.removeLayer(selectedDrawnFeature);
+  
+  if (qtBridge && qtBridge.onDrawnFeatureDeleted) {
+    var geojson = selectedDrawnFeature.toGeoJSON();
+    qtBridge.onDrawnFeatureDeleted(JSON.stringify(geojson));
+  }
+  
+  selectedDrawnFeature = null;
+  totalFeatures--;
+  updateFeatureCount();
+  showEditInfo('已删除绘制要素');
+}
+
+function showStopButton() {
+  document.getElementById('btnStopDraw').style.display = 'inline-block';
+}
+function hideStopButton() {
+  document.getElementById('btnStopDraw').style.display = 'none';
+}
+function highlightButton(id) {
+  document.getElementById(id).style.background = '#6366f1';
+  document.getElementById(id).style.color = 'white';
+}
+function unhighlightButton(id) {
+  var btn = document.getElementById(id);
+  if (btn) {
+    btn.style.background = 'rgba(255,255,255,0.95)';
+    btn.style.color = '#374151';
+  }
+}
+function unhighlightAllButtons() {
+  ['btnDrawPoint', 'btnDrawLine', 'btnDrawPolygon', 'btnEditGeom'].forEach(function(id) {
+    unhighlightButton(id);
+  });
+}
+function showEditInfo(text) {
+  var info = document.getElementById('editInfo');
+  if (text) {
+    info.textContent = text;
+    info.style.display = 'block';
+  } else {
+    info.style.display = 'none';
+  }
+}
+</script>
+</body>
+</html>

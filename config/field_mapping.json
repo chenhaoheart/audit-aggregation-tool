@@ -1,0 +1,44 @@
+[
+  {
+    "output_name": "隐患要素分布L.shp",
+    "keywords": [
+      "隐患要素"
+    ],
+    "field_mapping": [
+      {"name": "名称", "candidates": ["名称", "NAME", "Name", "name"]},
+      {"name": "编号", "candidates": ["PID", "编号", "编码", "pid", "Pid"]},
+      {"name": "类别", "candidates": ["TYPE", "TYPES", "types", "TYPBS", "类别"]},
+      {"name": "河流名称", "candidates": ["RVNM", "RVNAME", "rvname", "RAVNME", "RVNAVB", "河流名称", "河流名"]},
+      {"name": "河流代码", "candidates": ["RVCD", "rvcd", "河流代码", "河流代"]}
+    ]
+  },
+  {
+    "output_name": "断面平面位置L.shp",
+    "keywords": [
+      "断面"
+    ],
+    "field_mapping": [
+      {"name": "名称", "candidates": ["断面NM", "断面", "审核汇", "名称", "NAME", "Name", "name", "断面名称", "断面名"]},
+      {"name": "编号", "candidates": ["PID", "断面编", "编号", "编码", "pid"]},
+      {"name": "类别", "candidates": ["TYPE", "TYPES", "TYPBS", "类别", "类型", "断面类"]},
+      {"name": "河流名称", "candidates": ["RVNM", "RVNAME", "RVNAME", "RVNAVB", "河流名称", "河流名"]},
+      {"name": "河流代码", "candidates": ["RVCD", "rvcd", "RIVL", "河流代码", "河流代"]}
+    ]
+  },
+  {
+    "output_name": "防治对象分布P.shp",
+    "keywords": [
+      "防治对象",
+      "保护对象",
+      "防止对象"
+    ],
+    "field_mapping": [
+      {"name": "名称", "candidates": ["NAME", "Name", "name", "名称", "行政区"]},
+      {"name": "代码", "candidates": ["PID", "代码", "pid", "行政_1"]},
+      {"name": "人口", "candidates": ["PCOUNT", "POPULATION", "人口"]},
+      {"name": "类别", "candidates": ["TYPE", "TYPES", "TYPBS", "类别", "类型"]},
+      {"name": "河流名称", "candidates": ["RVNM", "RVNAME", "RVNAME", "RVNAVB", "河流名称", "河流名", "所在流"]},
+      {"name": "河流代码", "candidates": ["RVCD", "rvcd", "河流代码", "河流代"]}
+    ]
+  }
+]

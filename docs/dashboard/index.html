@@ -1,0 +1,1782 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>空间数据检查 · 审核汇集</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   CSS CUSTOM PROPERTIES — Aurora Theme
+   ============================================================ */
+:root {
+  --bg-deep: #0a0e27;
+  --bg-main: #0d1117;
+  --bg-main-alt: #161b2e;
+  --surface: rgba(20, 27, 45, 0.85);
+  --surface-solid: #141b2d;
+  --surface-hover: rgba(22, 30, 50, 0.95);
+  --border: rgba(121, 134, 203, 0.15);
+  --border-strong: rgba(121, 134, 203, 0.25);
+
+  --accent: #00d4aa;
+  --accent-dim: rgba(0, 212, 170, 0.15);
+  --accent-glow: rgba(0, 212, 170, 0.25);
+  --secondary: #7c3aed;
+  --secondary-dim: rgba(124, 58, 237, 0.15);
+
+  --success: #00e676;
+  --success-bg: rgba(0, 230, 118, 0.10);
+  --warning: #ffd54f;
+  --warning-bg: rgba(255, 213, 79, 0.10);
+  --error: #ff6b6b;
+  --error-bg: rgba(255, 107, 107, 0.10);
+  --info: #4fc3f7;
+  --info-bg: rgba(79, 195, 247, 0.10);
+
+  --text-primary: #e8eaf6;
+  --text-secondary: #7986cb;
+  --text-muted: #5c6bc0;
+  --text-inverse: #0a0e27;
+
+  --sidebar-w: 220px;
+  --sidebar-collapsed-w: 64px;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 14px;
+
+  --font-display: 'Outfit', sans-serif;
+  --font-body: 'Source Sans 3', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-size: 15px; }
+body {
+  font-family: var(--font-body);
+  color: var(--text-primary);
+  background: var(--bg-main);
+  min-height: 100vh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Topographic background pattern */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg width='800' height='600' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 300 Q200 200 400 300 T800 300' fill='none' stroke='%2300d4aa' stroke-width='0.5'/%3E%3Cpath d='M0 260 Q200 160 400 260 T800 260' fill='none' stroke='%2300d4aa' stroke-width='0.5'/%3E%3Cpath d='M0 340 Q200 240 400 340 T800 340' fill='none' stroke='%2300d4aa' stroke-width='0.5'/%3E%3Cpath d='M0 220 Q200 120 400 220 T800 220' fill='none' stroke='%2300d4aa' stroke-width='0.5'/%3E%3Cpath d='M0 380 Q200 280 400 380 T800 380' fill='none' stroke='%2300d4aa' stroke-width='0.5'/%3E%3Cpath d='M0 180 Q200 80 400 180 T800 180' fill='none' stroke='%237c3aed' stroke-width='0.5'/%3E%3Cpath d='M0 420 Q200 320 400 420 T800 420' fill='none' stroke='%237c3aed' stroke-width='0.5'/%3E%3C/svg%3E");
+  background-size: 800px 600px;
+  pointer-events: none;
+}
+
+/* ============================================================
+   LAYOUT SHELL
+   ============================================================ */
+.app {
+  display: flex;
+  height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+.sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  background: linear-gradient(180deg, #0a0e27 0%, #141b3d 100%);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.25s var(--ease-out), min-width 0.25s var(--ease-out);
+  z-index: 10;
+  overflow: hidden;
+}
+.sidebar.collapsed {
+  width: var(--sidebar-collapsed-w);
+  min-width: var(--sidebar-collapsed-w);
+}
+
+.sidebar-header {
+  padding: 20px 16px 16px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.sidebar-logo {
+  font-size: 1.6rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+.sidebar-logo .accent { color: var(--accent); }
+.sidebar-subtitle {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.sidebar-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 12px 8px;
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  font-weight: 500;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  position: relative;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-body);
+}
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+.nav-item.active {
+  background: linear-gradient(135deg, rgba(0, 212, 170, 0.15), rgba(124, 58, 237, 0.10));
+  color: var(--accent);
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: var(--accent);
+  border-radius: 0 3px 3px 0;
+}
+.nav-icon {
+  font-size: 1.1rem;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.nav-text {
+  overflow: hidden;
+  transition: opacity 0.2s ease;
+}
+.sidebar.collapsed .nav-text,
+.sidebar.collapsed .sidebar-subtitle,
+.sidebar.collapsed .sidebar-divider,
+.sidebar.collapsed .sidebar-footer-text { display: none; }
+.sidebar.collapsed .sidebar-header { padding: 16px 8px 12px; }
+.sidebar.collapsed .sidebar-logo { font-size: 1.4rem; }
+.sidebar.collapsed .nav-item { justify-content: center; padding: 10px 0; }
+.sidebar.collapsed .sidebar-footer { align-items: center; }
+
+.sidebar-footer {
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sidebar-footer-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  background: none;
+  border: 1px solid var(--border);
+  width: 100%;
+  font-family: var(--font-body);
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.sidebar-footer-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+.sidebar-footer-text {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 4px 0;
+  font-family: var(--font-mono);
+}
+
+/* ============================================================
+   MAIN CONTENT
+   ============================================================ */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--bg-main) 0%, var(--bg-main-alt) 100%);
+  min-width: 0;
+}
+
+/* Top bar */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(10, 14, 39, 0.6);
+  backdrop-filter: blur(12px);
+  flex-shrink: 0;
+}
+.topbar-title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.topbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.topbar-badge {
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid rgba(0, 212, 170, 0.2);
+}
+.topbar-time {
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+/* Content area */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px 40px;
+}
+.content::-webkit-scrollbar { width: 6px; }
+.content::-webkit-scrollbar-track { background: transparent; }
+.content::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+.content::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Pages */
+.page {
+  display: none;
+  animation: pageIn 0.35s var(--ease-out) both;
+}
+.page.active { display: block; }
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================
+   COMPONENTS — Stat Cards
+   ============================================================ */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  animation: cardIn 0.4s var(--ease-out) both;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.stat-card.teal::before { background: linear-gradient(90deg, var(--accent), transparent); }
+.stat-card.purple::before { background: linear-gradient(90deg, var(--secondary), transparent); }
+.stat-card.green::before { background: linear-gradient(90deg, var(--success), transparent); }
+.stat-card.red::before { background: linear-gradient(90deg, var(--error), transparent); }
+
+.stat-number {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.stat-card.teal .stat-number { color: var(--accent); }
+.stat-card.purple .stat-number { color: var(--secondary); }
+.stat-card.green .stat-number { color: var(--success); }
+.stat-card.red .stat-number { color: var(--error); }
+.stat-label {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+/* ============================================================
+   COMPONENTS — Cards
+   ============================================================ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  animation: cardIn 0.4s var(--ease-out) both;
+}
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.card-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.card-accent {
+  width: 3px;
+  height: 18px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.card-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.card-body { padding: 16px 20px; }
+
+/* ============================================================
+   COMPONENTS — Table
+   ============================================================ */
+.table-wrap {
+  overflow-x: auto;
+}
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+table.data-table thead th {
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  background: rgba(22, 30, 50, 0.5);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+}
+table.data-table tbody tr {
+  border-bottom: 1px solid rgba(121, 134, 203, 0.07);
+  transition: background 0.15s ease;
+}
+table.data-table tbody tr:hover {
+  background: rgba(0, 212, 170, 0.04);
+}
+table.data-table tbody tr:hover td:first-child {
+  border-left: 2px solid var(--accent);
+}
+table.data-table td {
+  padding: 10px 14px;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+td.code {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+td.mono {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+/* ============================================================
+   COMPONENTS — Badges
+   ============================================================ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.badge-pass {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid rgba(0, 230, 118, 0.2);
+}
+.badge-fail {
+  background: var(--error-bg);
+  color: var(--error);
+  border: 1px solid rgba(255, 107, 107, 0.2);
+}
+.badge-warn {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid rgba(255, 213, 79, 0.2);
+}
+.badge-info {
+  background: var(--info-bg);
+  color: var(--info);
+  border: 1px solid rgba(79, 195, 247, 0.2);
+}
+
+/* ============================================================
+   COMPONENTS — Filter Bar
+   ============================================================ */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  flex-wrap: wrap;
+}
+.filter-input {
+  background: rgba(20, 27, 45, 0.9);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-family: var(--font-body);
+  outline: none;
+  transition: border-color 0.15s ease;
+  min-width: 200px;
+}
+.filter-input::placeholder { color: var(--text-muted); }
+.filter-input:focus { border-color: var(--accent); }
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+.filter-chip:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.filter-chip.active {
+  background: var(--accent-dim);
+  border-color: rgba(0, 212, 170, 0.3);
+  color: var(--accent);
+}
+
+/* ============================================================
+   COMPONENTS — Tabs
+   ============================================================ */
+.tab-bar {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+.tab-btn {
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+}
+.tab-btn:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.03); }
+.tab-btn.active {
+  background: linear-gradient(135deg, rgba(0, 212, 170, 0.2), rgba(124, 58, 237, 0.12));
+  color: var(--accent);
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: pageIn 0.3s var(--ease-out) both; }
+
+/* ============================================================
+   COMPONENTS — Donut Chart (pure CSS)
+   ============================================================ */
+.donut-container {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 8px 0;
+}
+.donut {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  position: relative;
+  flex-shrink: 0;
+}
+.donut-center {
+  position: absolute;
+  inset: 20px;
+  background: var(--surface-solid);
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.donut-center-value {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.donut-center-label {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+}
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   COMPONENTS — Timeline
+   ============================================================ */
+.timeline {
+  position: relative;
+  padding-left: 24px;
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: var(--border);
+}
+.timeline-item {
+  position: relative;
+  padding-bottom: 16px;
+}
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -21px;
+  top: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+.timeline-item.warn::before { background: var(--warning); box-shadow: 0 0 6px rgba(255, 213, 79, 0.3); }
+.timeline-item.error::before { background: var(--error); box-shadow: 0 0 6px rgba(255, 107, 107, 0.3); }
+.timeline-item.success::before { background: var(--success); box-shadow: 0 0 6px rgba(0, 230, 118, 0.3); }
+.timeline-time {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.timeline-text {
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+/* ============================================================
+   COMPONENTS — Progress Ring
+   ============================================================ */
+.progress-ring-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.progress-ring {
+  transform: rotate(-90deg);
+}
+.progress-ring-bg {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 6;
+}
+.progress-ring-fill {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s var(--ease-out);
+}
+
+/* ============================================================
+   COMPONENTS — Log Viewer
+   ============================================================ */
+.log-viewer {
+  background: #060a1a;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  max-height: 500px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.7;
+}
+.log-viewer::-webkit-scrollbar { width: 4px; }
+.log-viewer::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+.log-line { display: flex; gap: 12px; }
+.log-time { color: var(--text-muted); flex-shrink: 0; }
+.log-level-info { color: var(--accent); }
+.log-level-warn { color: var(--warning); }
+.log-level-error { color: var(--error); }
+.log-level-success { color: var(--success); }
+.log-msg { color: var(--text-primary); word-break: break-all; }
+
+/* ============================================================
+   COMPONENTS — Validation Cards
+   ============================================================ */
+.validation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.validation-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.validation-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 80px;
+  height: 80px;
+  background: radial-gradient(circle at top right, var(--accent-dim), transparent 70%);
+  pointer-events: none;
+}
+.vc-title {
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+.vc-stats {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+}
+.vc-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.vc-stat-value {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.vc-stat-label {
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ============================================================
+   COMPONENTS — Expandable Row
+   ============================================================ */
+.detail-row { display: none; }
+.detail-row.open { display: table-row; }
+.detail-content {
+  padding: 12px 14px;
+  background: rgba(0, 212, 170, 0.03);
+  border-left: 3px solid var(--accent);
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.detail-field-label {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.detail-field-value {
+  font-size: 0.82rem;
+  color: var(--text-primary);
+}
+.detail-errors {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--error-bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 107, 107, 0.15);
+  font-size: 0.78rem;
+  color: var(--error);
+}
+
+/* ============================================================
+   COMPONENTS — Section Header
+   ============================================================ */
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+.section-title {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.section-subtitle {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* ============================================================
+   UTILITY
+   ============================================================ */
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.gap-sm { gap: 8px; }
+.mt-12 { margin-top: 12px; }
+.mt-16 { margin-top: 16px; }
+.mb-16 { margin-bottom: 16px; }
+.mb-24 { margin-bottom: 24px; }
+.text-success { color: var(--success); }
+.text-error { color: var(--error); }
+.text-warning { color: var(--warning); }
+.text-muted { color: var(--text-muted); }
+.text-mono { font-family: var(--font-mono); }
+.text-sm { font-size: 0.78rem; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .sidebar { width: var(--sidebar-collapsed-w); min-width: var(--sidebar-collapsed-w); }
+  .sidebar .nav-text, .sidebar .sidebar-subtitle, .sidebar .sidebar-divider, .sidebar .sidebar-footer-text { display: none; }
+  .sidebar .sidebar-header { padding: 16px 8px 12px; }
+  .sidebar .nav-item { justify-content: center; padding: 10px 0; }
+  .sidebar .sidebar-footer { align-items: center; }
+  .content { padding: 16px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .stat-grid { grid-template-columns: 1fr; }
+  .donut-container { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ========== SIDEBAR ========== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo"><span class="accent">&#x1f30f;</span> 审核汇集</div>
+      <div class="sidebar-subtitle">风险隐患调查审核工具</div>
+    </div>
+    <div class="sidebar-divider"></div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-page="overview">
+        <span class="nav-icon">&#x1f4ca;</span>
+        <span class="nav-text">总览</span>
+      </button>
+      <button class="nav-item" data-page="checks">
+        <span class="nav-icon">&#x1f50d;</span>
+        <span class="nav-text">数据检查</span>
+      </button>
+      <button class="nav-item" data-page="reports">
+        <span class="nav-icon">&#x1f4c2;</span>
+        <span class="nav-text">报表查看</span>
+      </button>
+      <button class="nav-item" data-page="validation">
+        <span class="nav-icon">&#x2705;</span>
+        <span class="nav-text">数据校验</span>
+      </button>
+      <button class="nav-item" data-page="logs">
+        <span class="nav-icon">&#x1f4dd;</span>
+        <span class="nav-text">运行日志</span>
+      </button>
+    </nav>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-footer">
+      <button class="sidebar-footer-btn" id="toggleSidebar">
+        <span>&#x25c0;</span>
+        <span class="nav-text">折叠</span>
+      </button>
+      <div class="sidebar-footer-text">v1.3.0 &middot; Aurora</div>
+    </div>
+  </aside>
+
+  <!-- ========== MAIN ========== -->
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-title" id="topbarTitle">总览</div>
+      <div class="topbar-meta">
+        <span class="topbar-badge">Aurora Theme</span>
+        <span class="topbar-time" id="clock"></span>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- ==================== PAGE: OVERVIEW ==================== -->
+      <div class="page active" id="page-overview">
+        <div class="section-header">
+          <div>
+            <div class="section-title">数据质量总览</div>
+            <div class="section-subtitle">空间数据检查结果汇总与质量指标</div>
+          </div>
+        </div>
+
+        <div class="stat-grid" id="statGrid">
+          <div class="stat-card teal" style="animation-delay:0ms">
+            <div class="stat-number" data-count="12">0</div>
+            <div class="stat-label">检查文件数</div>
+          </div>
+          <div class="stat-card green" style="animation-delay:60ms">
+            <div class="stat-number" data-count="1847">0</div>
+            <div class="stat-label">通过记录</div>
+          </div>
+          <div class="stat-card red" style="animation-delay:120ms">
+            <div class="stat-number" data-count="63">0</div>
+            <div class="stat-label">不通过记录</div>
+          </div>
+          <div class="stat-card purple" style="animation-delay:180ms">
+            <div class="stat-number" data-count="96.7" data-suffix="%" data-decimals="1">0</div>
+            <div class="stat-label">总体通过率</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" class="mb-24">
+          <!-- Donut Chart -->
+          <div class="card" style="animation-delay:200ms">
+            <div class="card-header">
+              <div class="card-header-left">
+                <div class="card-accent"></div>
+                <div class="card-title">通过率分布</div>
+              </div>
+              <span class="badge badge-pass">整体良好</span>
+            </div>
+            <div class="card-body">
+              <div class="donut-container">
+                <div class="donut" id="donutChart">
+                  <div class="donut-center">
+                    <div class="donut-center-value">96.7%</div>
+                    <div class="donut-center-label">通过率</div>
+                  </div>
+                </div>
+                <div class="donut-legend">
+                  <div class="legend-item">
+                    <div class="legend-dot" style="background:var(--success)"></div>
+                    <span>通过 <strong>1,847</strong></span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-dot" style="background:var(--error)"></div>
+                    <span>不通过 <strong>63</strong></span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-dot" style="background:var(--warning)"></div>
+                    <span>重复 <strong>8</strong></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- River Summary -->
+          <div class="card" style="animation-delay:260ms">
+            <div class="card-header">
+              <div class="card-header-left">
+                <div class="card-accent" style="background:var(--secondary)"></div>
+                <div class="card-title">水系概览</div>
+              </div>
+              <span class="text-sm text-muted">共 6 条河流</span>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <table class="data-table">
+                <thead><tr><th>河流代码</th><th>河流名称</th><th>状态</th></tr></thead>
+                <tbody id="waterSummaryBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="card" style="animation-delay:320ms">
+          <div class="card-header">
+            <div class="card-header-left">
+              <div class="card-accent" style="background:var(--warning)"></div>
+              <div class="card-title">最近检查活动</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="timeline" id="activityTimeline"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== PAGE: DATA CHECKS ==================== -->
+      <div class="page" id="page-checks">
+        <div class="section-header">
+          <div>
+            <div class="section-title">数据检查结果</div>
+            <div class="section-subtitle">各图层文件的数据质量检查详情</div>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+          <input type="text" class="filter-input" id="checkSearch" placeholder="搜索文件名或文件夹...">
+          <span class="filter-chip active" data-status="all">全部</span>
+          <span class="filter-chip" data-status="通过">通过</span>
+          <span class="filter-chip" data-status="存在错误">存在错误</span>
+          <span class="filter-chip" data-status="文件未找到">未找到</span>
+        </div>
+
+        <div class="card">
+          <div class="card-body" style="padding:0;">
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th style="width:30px"></th>
+                    <th>文件夹</th>
+                    <th>文件名</th>
+                    <th>状态</th>
+                    <th>总记录</th>
+                    <th>有效</th>
+                    <th>无效</th>
+                    <th>重复</th>
+                  </tr>
+                </thead>
+                <tbody id="checkResultsBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== PAGE: REPORTS ==================== -->
+      <div class="page" id="page-reports">
+        <div class="section-header">
+          <div>
+            <div class="section-title">报表查看</div>
+            <div class="section-subtitle">附表数据浏览与筛选</div>
+          </div>
+        </div>
+
+        <div class="tab-bar" id="reportTabs">
+          <button class="tab-btn active" data-tab="fubiao1">附表1 · 防治对象名录</button>
+          <button class="tab-btn" data-tab="fubiao2">附表2 · 跨沟道路桥涵</button>
+          <button class="tab-btn" data-tab="fubiao3">附表3 · 沟滩占地</button>
+        </div>
+
+        <div class="tab-panel active" id="panel-fubiao1">
+          <div class="card">
+            <div class="card-body" style="padding:0;">
+              <div class="filter-bar" style="padding:12px 16px;">
+                <input type="text" class="filter-input" id="fb1Search" placeholder="搜索名称、类型...">
+                <span class="text-sm text-muted" id="fb1Count"></span>
+              </div>
+              <div class="table-wrap" style="max-height:480px;overflow-y:auto;">
+                <table class="data-table">
+                  <thead id="fb1Head"></thead>
+                  <tbody id="fb1Body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="panel-fubiao2">
+          <div class="card">
+            <div class="card-body" style="padding:0;">
+              <div class="filter-bar" style="padding:12px 16px;">
+                <input type="text" class="filter-input" id="fb2Search" placeholder="搜索名称、类型...">
+                <span class="text-sm text-muted" id="fb2Count"></span>
+              </div>
+              <div class="table-wrap" style="max-height:480px;overflow-y:auto;">
+                <table class="data-table">
+                  <thead id="fb2Head"></thead>
+                  <tbody id="fb2Body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="panel-fubiao3">
+          <div class="card">
+            <div class="card-body" style="padding:0;">
+              <div class="filter-bar" style="padding:12px 16px;">
+                <input type="text" class="filter-input" id="fb3Search" placeholder="搜索名称、类型...">
+                <span class="text-sm text-muted" id="fb3Count"></span>
+              </div>
+              <div class="table-wrap" style="max-height:480px;overflow-y:auto;">
+                <table class="data-table">
+                  <thead id="fb3Head"></thead>
+                  <tbody id="fb3Body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== PAGE: VALIDATION ==================== -->
+      <div class="page" id="page-validation">
+        <div class="section-header">
+          <div>
+            <div class="section-title">空间数据校验</div>
+            <div class="section-subtitle">附表与 SHP 图层双向匹配检查</div>
+          </div>
+        </div>
+
+        <div class="validation-grid" id="validationCards"></div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-header-left">
+              <div class="card-accent" style="background:var(--info)"></div>
+              <div class="card-title">匹配明细</div>
+            </div>
+            <div class="tab-bar" style="margin-bottom:0;border:none;padding:2px;" id="valTabs">
+              <button class="tab-btn active" data-valtab="val1" style="font-size:0.75rem;padding:5px 12px;">附表1 vs 防治对象</button>
+              <button class="tab-btn" data-valtab="val2" style="font-size:0.75rem;padding:5px 12px;">附表2 vs 隐患</button>
+              <button class="tab-btn" data-valtab="val3" style="font-size:0.75rem;padding:5px 12px;">附表3 vs 隐患</button>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div class="table-wrap" style="max-height:400px;overflow-y:auto;">
+              <table class="data-table">
+                <thead><tr><th>名称</th><th>附表代码</th><th>SHP代码</th><th>匹配结果</th><th>备注</th></tr></thead>
+                <tbody id="valMatchBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== PAGE: LOGS ==================== -->
+      <div class="page" id="page-logs">
+        <div class="section-header">
+          <div>
+            <div class="section-title">运行日志</div>
+            <div class="section-subtitle">检查过程的详细日志记录</div>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+          <span class="filter-chip active" data-loglevel="all">全部</span>
+          <span class="filter-chip" data-loglevel="info">信息</span>
+          <span class="filter-chip" data-loglevel="warn">警告</span>
+          <span class="filter-chip" data-loglevel="error">错误</span>
+        </div>
+
+        <div class="log-viewer" id="logViewer"></div>
+      </div>
+
+    </div><!-- .content -->
+  </main>
+</div><!-- .app -->
+
+<script>
+/* ================================================================
+   SAMPLE DATA — Mirrors the desktop app's data structures
+   ================================================================ */
+
+const waterRecords = [
+  { 河流代码: '63000000000000101', 河流名称: '黄河', 验证状态: '通过', 被使用图层数: 4, 被使用图层: '断面平面位置L, 防治对象分布P, 隐患要素分布L' },
+  { 河流代码: '63000000000000201', 河流名称: '长江', 验证状态: '通过', 被使用图层数: 3, 被使用图层: '断面平面位置L, 防治对象分布P' },
+  { 河流代码: '63000000000000301', 河流名称: '湟水河', 验证状态: '通过', 被使用图层数: 4, 被使用图层: '断面平面位置L, 防治对象分布P, 隐患要素分布L' },
+  { 河流代码: '63000000000000401', 河流名称: '大通河', 验证状态: '通过', 被使用图层数: 2, 被使用图层: '防治对象分布P' },
+  { 河流代码: '63000000000000501', 河流名称: '黑河', 验证状态: '不通过', 被使用图层数: 0, 被使用图层: '未被使用' },
+  { 河流代码: '630000000000006',   河流名称: '巴音河', 验证状态: '不通过', 被使用图层数: 1, 被使用图层: '断面平面位置L' },
+];
+
+const checkResults = [
+  { folder_name: '湟水河流域', file_name: '断面平面位置L.shp', status: '通过', total_records: 342, valid_records: 342, invalid_records: 0, duplicate_records: 0, errors: [] },
+  { folder_name: '湟水河流域', file_name: '防治对象分布P.shp', status: '通过', total_records: 156, valid_records: 156, invalid_records: 0, duplicate_records: 0, errors: [] },
+  { folder_name: '湟水河流域', file_name: '隐患要素分布L.shp', status: '存在错误', total_records: 287, valid_records: 271, invalid_records: 14, duplicate_records: 2, errors: ['河流代码长度16位(应为17位)', '编号长度27位(应为28位)'] },
+  { folder_name: '黄河流域', file_name: '断面平面位置L.shp', status: '通过', total_records: 198, valid_records: 198, invalid_records: 0, duplicate_records: 0, errors: [] },
+  { folder_name: '黄河流域', file_name: '防治对象分布P.shp', status: '存在错误', total_records: 89, valid_records: 85, invalid_records: 4, duplicate_records: 0, errors: ['河流代码[63000000000000501]不在水系中'] },
+  { folder_name: '黄河流域', file_name: '隐患要素分布L.shp', status: '通过', total_records: 134, valid_records: 134, invalid_records: 0, duplicate_records: 0, errors: [] },
+  { folder_name: '长江流域', file_name: '断面平面位置L.shp', status: '存在错误', total_records: 67, valid_records: 62, invalid_records: 5, duplicate_records: 0, errors: ['断面名称[CS012段]不符合河流名称+CS+3位数字格式'] },
+  { folder_name: '长江流域', file_name: '防治对象分布P.shp', status: '通过', total_records: 45, valid_records: 45, invalid_records: 0, duplicate_records: 0, errors: [] },
+  { folder_name: '长江流域', file_name: '隐患要素分布L.shp', status: '文件未找到', total_records: 0, valid_records: 0, invalid_records: 0, duplicate_records: 0, errors: ['文件未找到'] },
+  { folder_name: '大通河流域', file_name: '防治对象分布P.shp', status: '通过', total_records: 78, valid_records: 78, invalid_records: 0, duplicate_records: 0, errors: [] },
+  { folder_name: '大通河流域', file_name: '断面平面位置L.shp', status: '文件未找到', total_records: 0, valid_records: 0, invalid_records: 0, duplicate_records: 0, errors: ['文件未找到'] },
+  { folder_name: '大通河流域', file_name: '隐患要素分布L.shp', status: '存在错误', total_records: 563, valid_records: 472, invalid_records: 40, duplicate_records: 6, errors: ['编号开头6位[63000X]非数字', '河流代码长度15位(应为17位)'] },
+];
+
+const sampleDetailRecords = {
+  '隐患要素分布L.shp-湟水河流域': [
+    { 河流代码: '63000000000000101', 河流名称: '黄河', 编号: '63010263000000000000101001', 验证状态: '通过', 错误信息: '' },
+    { 河流代码: '63000000000000301', 河流名称: '湟水河', 编号: '63010363000000000000301002', 验证状态: '不通过', 错误信息: '编号长度27位(应为28位)' },
+    { 河流代码: '63000000000000301', 河流名称: '湟水河', 编号: '63010463000000000000301003', 验证状态: '不通过', 错误信息: '编号7-23位与河流代码不一致' },
+    { 河流代码: '63000000000000101', 河流名称: '黄河', 编号: '63010563000000000000101004', 验证状态: '通过', 错误信息: '' },
+  ],
+  '防治对象分布P.shp-黄河流域': [
+    { 河流代码: '63000000000000501', 河流名称: '黑河', 验证状态: '不通过', 错误信息: '河流代码[63000000000000501]不在水系中' },
+    { 河流代码: '63000000000000101', 河流名称: '黄河', 验证状态: '通过', 错误信息: '' },
+    { 河流代码: '63000000000000101', 河流名称: '黄河', 验证状态: '通过', 错误信息: '' },
+  ],
+};
+
+const fubiao1Data = [
+  { '序号': 1, '县名': '西宁市', '乡镇名': '城中区', '村名': '南川村', '名称': '南川河堤防', '类型': '河堤', '人口': 1200, '河流名称': '湟水河', '河流代码': '63000000000000301' },
+  { '序号': 2, '县名': '西宁市', '乡镇名': '城西区', '村名': '彭家寨村', '名称': '彭家寨护坡', '类型': '护坡', '人口': 800, '河流名称': '湟水河', '河流代码': '63000000000000301' },
+  { '序号': 3, '县名': '海东市', '乡镇名': '平安区', '村名': '平安镇', '名称': '平安大桥护岸', '类型': '护岸', '人口': 3500, '河流名称': '湟水河', '河流代码': '63000000000000301' },
+  { '序号': 4, '县名': '海东市', '乡镇名': '乐都区', '村名': '高庙镇', '名称': '高庙镇防洪堤', '类型': '河堤', '人口': 2100, '河流名称': '黄河', '河流代码': '63000000000000101' },
+  { '序号': 5, '县名': '海北州', '乡镇名': '门源县', '村名': '浩门镇', '名称': '浩门河护坡', '类型': '护坡', '人口': 950, '河流名称': '大通河', '河流代码': '63000000000000401' },
+  { '序号': 6, '县名': '海南州', '乡镇名': '共和县', '村名': '恰卜恰镇', '名称': '恰卜恰河堤', '类型': '河堤', '人口': 5600, '河流名称': '黄河', '河流代码': '63000000000000101' },
+  { '序号': 7, '县名': '黄南州', '乡镇名': '同仁县', '村名': '隆务镇', '名称': '隆务河护岸', '类型': '护岸', '人口': 1800, '河流名称': '黄河', '河流代码': '63000000000000101' },
+  { '序号': 8, '县名': '果洛州', '乡镇名': '玛沁县', '村名': '大武镇', '名称': '大武镇护坡', '类型': '护坡', '人口': 720, '河流名称': '黄河', '河流代码': '63000000000000101' },
+];
+
+const fubiao2Data = [
+  { '序号': 1, '名称': '南川路桥', '类型': '桥梁', '河流名称': '湟水河', '河流代码': '63000000000000301', '编号': '63000000000000301QL001' },
+  { '序号': 2, '名称': '平安路涵洞', '类型': '涵洞', '河流名称': '湟水河', '河流代码': '63000000000000301', '编号': '63000000000000301HD002' },
+  { '序号': 3, '名称': '黄河大桥', '类型': '桥梁', '河流名称': '黄河', '河流代码': '63000000000000101', '编号': '63000000000000101QL003' },
+  { '序号': 4, '名称': '高庙路涵', '类型': '涵洞', '河流名称': '黄河', '河流代码': '63000000000000101', '编号': '63000000000000101HD004' },
+  { '序号': 5, '名称': '浩门桥', '类型': '桥梁', '河流名称': '大通河', '河流代码': '63000000000000401', '编号': '63000000000000401QL005' },
+];
+
+const fubiao3Data = [
+  { '序号': 1, '名称': '南川河滩地', '类型': '沟滩占地', '面积(亩)': 45.2, '河流名称': '湟水河', '河流代码': '63000000000000301' },
+  { '序号': 2, '名称': '彭家寨滩', '类型': '沟滩占地', '面积(亩)': 28.6, '河流名称': '湟水河', '河流代码': '63000000000000301' },
+  { '序号': 3, '名称': '黄河滩涂区', '类型': '沟滩占地', '面积(亩)': 120.8, '河流名称': '黄河', '河流代码': '63000000000000101' },
+  { '序号': 4, '名称': '恰卜恰河滩', '类型': '沟滩占地', '面积(亩)': 67.3, '河流名称': '黄河', '河流代码': '63000000000000101' },
+  { '序号': 5, '名称': '隆务河滩地', '类型': '沟滩占地', '面积(亩)': 33.1, '河流名称': '黄河', '河流代码': '63000000000000101' },
+];
+
+const validationResults = [
+  {
+    title: '附表1 vs 防治对象分布P',
+    total_fb: 8,
+    total_shp: 156,
+    matched: 8,
+    fb_only: 0,
+    shp_only: 148,
+    match_rate: '100%',
+    status: '通过'
+  },
+  {
+    title: '附表2 vs 隐患要素分布L',
+    total_fb: 5,
+    total_shp: 287,
+    matched: 4,
+    fb_only: 1,
+    shp_only: 283,
+    match_rate: '80%',
+    status: '存在差异'
+  },
+  {
+    title: '附表3 vs 隐患要素分布L',
+    total_fb: 5,
+    total_shp: 287,
+    matched: 3,
+    fb_only: 2,
+    shp_only: 284,
+    match_rate: '60%',
+    status: '存在差异'
+  }
+];
+
+const validationDetails = {
+  val1: [
+    { 名称: '南川河堤防', 附表代码: '63000000000000301', SHP代码: '63000000000000301', 结果: '匹配', 备注: '名称一致，代码一致' },
+    { 名称: '彭家寨护坡', 附表代码: '63000000000000301', SHP代码: '63000000000000301', 结果: '匹配', 备注: '名称一致，代码一致' },
+    { 名称: '平安大桥护岸', 附表代码: '63000000000000301', SHP代码: '63000000000000301', 结果: '匹配', 备注: '名称一致' },
+    { 名称: '高庙镇防洪堤', 附表代码: '63000000000000101', SHP代码: '63000000000000101', 结果: '匹配', 备注: '名称一致' },
+    { 名称: '浩门河护坡', 附表代码: '63000000000000401', SHP代码: '63000000000000401', 结果: '匹配', 备注: '名称一致' },
+  ],
+  val2: [
+    { 名称: '南川路桥', 附表代码: '63000000000000301QL001', SHP代码: '63000000000000301', 结果: '部分匹配', 备注: '代码前缀匹配' },
+    { 名称: '平安路涵洞', 附表代码: '63000000000000301HD002', SHP代码: '63000000000000301', 结果: '部分匹配', 备注: '代码前缀匹配' },
+    { 名称: '黄河大桥', 附表代码: '63000000000000101QL003', SHP代码: '63000000000000101', 结果: '部分匹配', 备注: '代码前缀匹配' },
+    { 名称: '高庙路涵', 附表代码: '63000000000000101HD004', SHP代码: '—', 结果: '未匹配', 备注: 'SHP中无对应记录' },
+  ],
+  val3: [
+    { 名称: '南川河滩地', 附表代码: '63000000000000301', SHP代码: '63000000000000301', 结果: '匹配', 备注: '' },
+    { 名称: '黄河滩涂区', 附表代码: '63000000000000101', SHP代码: '63000000000000101', 结果: '匹配', 备注: '' },
+    { 名称: '彭家寨滩', 附表代码: '63000000000000301', SHP代码: '—', 结果: '未匹配', 备注: 'SHP中无对应记录' },
+  ]
+};
+
+const activityLog = [
+  { time: '14:32:05', level: 'success', text: '检查完成：湟水河流域 — 断面平面位置L.shp 通过 (342条)' },
+  { time: '14:31:48', level: 'success', text: '检查完成：湟水河流域 — 防治对象分布P.shp 通过 (156条)' },
+  { time: '14:31:22', level: 'error', text: '检查完成：湟水河流域 — 隐患要素分布L.shp 存在错误 (14条不通过, 2条重复)' },
+  { time: '14:30:55', level: 'info', text: '开始检查：湟水河流域' },
+  { time: '14:28:10', level: 'warn', text: '警告: 巴音河[630000000000006]河流代码长度15位(应为17位)' },
+  { time: '14:27:45', level: 'success', text: '水系数据加载完成 — 6条河流, 编码: GB18030' },
+  { time: '14:27:30', level: 'info', text: '开始检查... 递归搜索目录: D:/02空间数据' },
+  { time: '14:27:28', level: 'info', text: '发现 4 个包含图层文件的文件夹' },
+];
+
+const sampleLogs = [
+  { time: '14:27:28', level: 'info', msg: '============================================================' },
+  { time: '14:27:28', level: 'info', msg: '开始检查...' },
+  { time: '14:27:28', level: 'info', msg: '============================================================' },
+  { time: '14:27:28', level: 'info', msg: '递归搜索目录: D:/02空间数据' },
+  { time: '14:27:28', level: 'info', msg: '  发现目标文件夹: D:/02空间数据/湟水河流域 (包含 断面平面位置L.shp)' },
+  { time: '14:27:28', level: 'info', msg: '  发现目标文件夹: D:/02空间数据/黄河流域 (包含 断面平面位置L.shp)' },
+  { time: '14:27:28', level: 'info', msg: '  发现目标文件夹: D:/02空间数据/长江流域 (包含 断面平面位置L.shp)' },
+  { time: '14:27:28', level: 'info', msg: '  发现目标文件夹: D:/02空间数据/大通河流域 (包含 防治对象分布P.shp)' },
+  { time: '14:27:28', level: 'info', msg: '发现 4 个包含图层文件的文件夹' },
+  { time: '14:27:30', level: 'info', msg: '加载水系数据...' },
+  { time: '14:27:30', level: 'info', msg: '检测到 DBF 编码: gb18030 (来自 LDID)' },
+  { time: '14:27:30', level: 'success', msg: '✓ 使用 LDID 检测的编码: gb18030' },
+  { time: '14:27:30', level: 'info', msg: '水系记录数：6' },
+  { time: '14:27:30', level: 'info', msg: '匹配到的河流代码字段: RVCD' },
+  { time: '14:27:30', level: 'info', msg: '匹配到的河流名称字段: RVNM' },
+  { time: '14:27:30', level: 'success', msg: '✓ 启发式检测使用编码: gb18030 (RVNM 非空数: 6)' },
+  { time: '14:27:30', level: 'info', msg: '河流代码数量：6' },
+  { time: '14:27:30', level: 'info', msg: '河流名称数量：6' },
+  { time: '14:27:30', level: 'warn', msg: '河流代码不为17位数量：1' },
+  { time: '14:27:30', level: 'warn', msg: '河流代码重复数量：0' },
+  { time: '14:27:45', level: 'success', msg: '水系数据加载完成' },
+  { time: '14:28:10', level: 'warn', msg: '⚠️ 警告: 巴音河[630000000000006]河流代码长度15位(应为17位)' },
+  { time: '14:30:55', level: 'info', msg: '处理文件夹：湟水河流域' },
+  { time: '14:30:55', level: 'info', msg: '检查：断面平面位置L.shp' },
+  { time: '14:31:10', level: 'success', msg: '✅ 状态：通过 | 记录：342 | 有效：342' },
+  { time: '14:31:22', level: 'info', msg: '检查：防治对象分布P.shp' },
+  { time: '14:31:35', level: 'success', msg: '✅ 状态：通过 | 记录：156 | 有效：156' },
+  { time: '14:31:48', level: 'info', msg: '检查：隐患要素分布L* (模糊匹配)' },
+  { time: '14:32:05', level: 'error', msg: '❌ 状态：存在错误 | 记录：287 | 有效：271 | 无效：14 | 重复：2' },
+  { time: '14:32:05', level: 'error', msg: '  错误：河流代码长度16位(应为17位); 编号长度27位(应为28位)' },
+  { time: '14:33:00', level: 'info', msg: '处理文件夹：黄河流域' },
+  { time: '14:33:15', level: 'success', msg: '✅ 状态：通过 | 记录：198 | 有效：198' },
+  { time: '14:33:30', level: 'error', msg: '❌ 状态：存在错误 | 记录：89 | 有效：85 | 无效：4' },
+  { time: '14:34:00', level: 'success', msg: '✅ 状态：通过 | 记录：134 | 有效：134' },
+  { time: '14:35:00', level: 'info', msg: '处理文件夹：长江流域' },
+  { time: '14:35:20', level: 'error', msg: '❌ 状态：存在错误 | 记录：67 | 有效：62 | 无效：5' },
+  { time: '14:36:00', level: 'success', msg: '✅ 状态：通过 | 记录：45 | 有效：45' },
+  { time: '14:36:10', level: 'warn', msg: '⚠ 未找到包含 \'隐患要素分布\' 的图层' },
+  { time: '14:37:00', level: 'info', msg: '处理文件夹：大通河流域' },
+  { time: '14:37:15', level: 'success', msg: '✅ 状态：通过 | 记录：78 | 有效：78' },
+  { time: '14:37:30', level: 'warn', msg: '⚠ 文件未找到 — 断面平面位置L.shp' },
+  { time: '14:38:00', level: 'error', msg: '❌ 状态：存在错误 | 记录：563 | 有效：472 | 无效：40 | 重复：6' },
+  { time: '14:38:00', level: 'info', msg: '检查完成' },
+  { time: '14:38:01', level: 'info', msg: '============================================================' },
+];
+
+/* ================================================================
+   INITIALIZATION
+   ================================================================ */
+document.addEventListener('DOMContentLoaded', () => {
+  initClock();
+  initSidebar();
+  renderWaterSummary();
+  renderDonutChart();
+  renderActivityTimeline();
+  renderCheckResults();
+  renderReports();
+  renderValidation();
+  renderLogs();
+  animateCounters();
+  initFilterBar();
+  initReportTabs();
+  initValTabs();
+  initLogFilter();
+});
+
+/* ================================================================
+   CLOCK
+   ================================================================ */
+function initClock() {
+  const el = document.getElementById('clock');
+  const tick = () => {
+    const now = new Date();
+    el.textContent = now.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+  tick();
+  setInterval(tick, 1000);
+}
+
+/* ================================================================
+   SIDEBAR
+   ================================================================ */
+function initSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const toggleBtn = document.getElementById('toggleSidebar');
+  const navItems = document.querySelectorAll('.nav-item');
+  const topbarTitle = document.getElementById('topbarTitle');
+
+  const pageTitles = {
+    overview: '总览',
+    checks: '数据检查',
+    reports: '报表查看',
+    validation: '数据校验',
+    logs: '运行日志'
+  };
+
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const page = item.dataset.page;
+      // Update nav
+      navItems.forEach(n => n.classList.remove('active'));
+      item.classList.add('active');
+      // Update page
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + page).classList.add('active');
+      // Update topbar
+      topbarTitle.textContent = pageTitles[page] || '';
+    });
+  });
+
+  toggleBtn.addEventListener('click', () => {
+    sidebar.classList.toggle('collapsed');
+    const icon = toggleBtn.querySelector('span:first-child');
+    icon.textContent = sidebar.classList.contains('collapsed') ? '\u25b6' : '\u25c0';
+  });
+}
+
+/* ================================================================
+   STAT COUNTER ANIMATION
+   ================================================================ */
+function animateCounters() {
+  document.querySelectorAll('.stat-number[data-count]').forEach(el => {
+    const target = parseFloat(el.dataset.count);
+    const decimals = parseInt(el.dataset.decimals) || 0;
+    const suffix = el.dataset.suffix || '';
+    const duration = 800;
+    const start = performance.now();
+
+    const animate = (now) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      const current = (eased * target).toFixed(decimals);
+      el.textContent = Number(current).toLocaleString() + suffix;
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    setTimeout(() => requestAnimationFrame(animate), 200);
+  });
+}
+
+/* ================================================================
+   DONUT CHART (CSS conic-gradient)
+   ================================================================ */
+function renderDonutChart() {
+  const total = 1847 + 63 + 8;
+  const p1 = (1847 / total * 100).toFixed(1);
+  const p2 = (63 / total * 100).toFixed(1);
+  const p3 = (8 / total * 100).toFixed(1);
+  const el = document.getElementById('donutChart');
+  el.style.background = `conic-gradient(
+    var(--success) 0% ${p1}%,
+    var(--error) ${p1}% ${parseFloat(p1) + parseFloat(p2)}%,
+    var(--warning) ${parseFloat(p1) + parseFloat(p2)}% 100%
+  )`;
+}
+
+/* ================================================================
+   WATER SUMMARY
+   ================================================================ */
+function renderWaterSummary() {
+  const tbody = document.getElementById('waterSummaryBody');
+  tbody.innerHTML = waterRecords.map(w => {
+    const badge = w.验证状态 === '通过'
+      ? '<span class="badge badge-pass">通过</span>'
+      : '<span class="badge badge-fail">不通过</span>';
+    return `<tr>
+      <td class="code">${w.河流代码}</td>
+      <td>${w.河流名称}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ================================================================
+   ACTIVITY TIMELINE
+   ================================================================ */
+function renderActivityTimeline() {
+  const container = document.getElementById('activityTimeline');
+  container.innerHTML = activityLog.map(log => {
+    return `<div class="timeline-item ${log.level}">
+      <div class="timeline-time">${log.time}</div>
+      <div class="timeline-text">${log.text}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ================================================================
+   CHECK RESULTS TABLE
+   ================================================================ */
+function renderCheckResults(filter = { status: 'all', search: '' }) {
+  const tbody = document.getElementById('checkResultsBody');
+  let filtered = checkResults;
+
+  if (filter.status !== 'all') {
+    filtered = filtered.filter(r => r.status === filter.status);
+  }
+  if (filter.search) {
+    const s = filter.search.toLowerCase();
+    filtered = filtered.filter(r => r.file_name.toLowerCase().includes(s) || r.folder_name.toLowerCase().includes(s));
+  }
+
+  tbody.innerHTML = filtered.map((r, i) => {
+    const badge = r.status === '通过'
+      ? '<span class="badge badge-pass">通过</span>'
+      : r.status === '存在错误'
+        ? '<span class="badge badge-fail">存在错误</span>'
+        : '<span class="badge badge-warn">文件未找到</span>';
+
+    const hasErrors = r.errors && r.errors.length > 0;
+    const key = r.file_name + '-' + r.folder_name;
+    const detailKey = hasErrors ? key : null;
+
+    return `<tr data-index="${i}">
+      <td style="cursor:pointer;color:var(--text-muted);font-size:0.75rem;" class="expand-btn" data-key="${detailKey || ''}">${hasErrors ? '\u25b6' : ''}</td>
+      <td class="text-sm">${r.folder_name}</td>
+      <td class="text-sm" style="font-family:var(--font-mono)">${r.file_name}</td>
+      <td>${badge}</td>
+      <td class="mono">${r.total_records}</td>
+      <td class="mono text-success">${r.valid_records}</td>
+      <td class="mono ${r.invalid_records > 0 ? 'text-error' : ''}">${r.invalid_records}</td>
+      <td class="mono ${r.duplicate_records > 0 ? 'text-warning' : ''}">${r.duplicate_records}</td>
+    </tr>
+    ${hasErrors ? `<tr class="detail-row" data-detail="${key}">
+      <td colspan="8">
+        <div class="detail-content">
+          <div class="detail-grid">
+            <div class="detail-field">
+              <div class="detail-field-label">文件路径</div>
+              <div class="detail-field-value code">${r.folder_name}/${r.file_name}</div>
+            </div>
+            <div class="detail-field">
+              <div class="detail-field-label">检查状态</div>
+              <div class="detail-field-value">${badge}</div>
+            </div>
+            <div class="detail-field">
+              <div class="detail-field-label">总记录数</div>
+              <div class="detail-field-value mono">${r.total_records}</div>
+            </div>
+            <div class="detail-field">
+              <div class="detail-field-label">错误数</div>
+              <div class="detail-field-value text-error mono">${r.invalid_records}</div>
+            </div>
+          </div>
+          <div class="detail-errors">
+            <strong>错误详情：</strong><br>
+            ${r.errors.map(e => '\u2022 ' + e).join('<br>')}
+          </div>
+        </div>
+      </td>
+    </tr>` : ''}`;
+  }).join('');
+
+  // Attach expand handlers
+  tbody.querySelectorAll('.expand-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      if (!key) return;
+      const detailRow = tbody.querySelector(`tr[data-detail="${key}"]`);
+      if (detailRow) {
+        detailRow.classList.toggle('open');
+        btn.textContent = detailRow.classList.contains('open') ? '\u25bc' : '\u25b6';
+      }
+    });
+  });
+}
+
+/* ================================================================
+   REPORTS TABLES
+   ================================================================ */
+function renderReports() {
+  // 附表1
+  const fb1Head = document.getElementById('fb1Head');
+  const fb1Cols = Object.keys(fubiao1Data[0]);
+  fb1Head.innerHTML = '<tr>' + fb1Cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+  renderFbTable('fb1', fubiao1Data, fb1Cols);
+
+  // 附表2
+  const fb2Head = document.getElementById('fb2Head');
+  const fb2Cols = Object.keys(fubiao2Data[0]);
+  fb2Head.innerHTML = '<tr>' + fb2Cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+  renderFbTable('fb2', fubiao2Data, fb2Cols);
+
+  // 附表3
+  const fb3Head = document.getElementById('fb3Head');
+  const fb3Cols = Object.keys(fubiao3Data[0]);
+  fb3Head.innerHTML = '<tr>' + fb3Cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+  renderFbTable('fb3', fubiao3Data, fb3Cols);
+}
+
+function renderFbTable(prefix, data, cols) {
+  const tbody = document.getElementById(prefix + 'Body');
+  const countEl = document.getElementById(prefix + 'Count');
+  tbody.innerHTML = data.map(row => {
+    return '<tr>' + cols.map(c => {
+      let v = row[c] ?? '';
+      if (typeof v === 'number') return `<td class="mono">${v}</td>`;
+      if (c.includes('代码')) return `<td class="code">${v}</td>`;
+      return `<td>${v}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+  countEl.textContent = `共 ${data.length} 条记录`;
+}
+
+/* ================================================================
+   VALIDATION
+   ================================================================ */
+function renderValidation() {
+  const container = document.getElementById('validationCards');
+  container.innerHTML = validationResults.map(v => {
+    const statusBadge = v.status === '通过'
+      ? '<span class="badge badge-pass">通过</span>'
+      : '<span class="badge badge-warn">存在差异</span>';
+    return `<div class="validation-card">
+      <div class="vc-title">${v.title} ${statusBadge}</div>
+      <div class="text-sm text-muted">附表: ${v.total_fb} 条 | SHP: ${v.total_shp} 条</div>
+      <div class="vc-stats">
+        <div class="vc-stat">
+          <div class="vc-stat-value text-success">${v.matched}</div>
+          <div class="vc-stat-label">匹配</div>
+        </div>
+        <div class="vc-stat">
+          <div class="vc-stat-value text-warning">${v.fb_only}</div>
+          <div class="vc-stat-label">仅附表</div>
+        </div>
+        <div class="vc-stat">
+          <div class="vc-stat-value text-muted">${v.shp_only}</div>
+          <div class="vc-stat-label">仅SHP</div>
+        </div>
+        <div class="vc-stat">
+          <div class="vc-stat-value" style="color:var(--accent)">${v.match_rate}</div>
+          <div class="vc-stat-label">匹配率</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Render first validation detail
+  renderValidationDetail('val1');
+}
+
+function renderValidationDetail(tabId) {
+  const tbody = document.getElementById('valMatchBody');
+  const data = validationDetails[tabId] || [];
+  tbody.innerHTML = data.map(row => {
+    const badge = row.结果 === '匹配' ? '<span class="badge badge-pass">匹配</span>'
+      : row.结果 === '部分匹配' ? '<span class="badge badge-warn">部分匹配</span>'
+        : '<span class="badge badge-fail">未匹配</span>';
+    return `<tr>
+      <td>${row.名称}</td>
+      <td class="code">${row.附表代码}</td>
+      <td class="code">${row.SHP代码}</td>
+      <td>${badge}</td>
+      <td class="text-sm text-muted">${row.备注}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ================================================================
+   LOGS
+   ================================================================ */
+function renderLogs(filterLevel = 'all') {
+  const viewer = document.getElementById('logViewer');
+  const filtered = filterLevel === 'all'
+    ? sampleLogs
+    : sampleLogs.filter(l => l.level === filterLevel);
+
+  viewer.innerHTML = filtered.map(l => {
+    return `<div class="log-line" data-level="${l.level}">
+      <span class="log-time">${l.time}</span>
+      <span class="log-level-${l.level}">[${l.level.toUpperCase()}]</span>
+      <span class="log-msg">${l.msg}</span>
+    </div>`;
+  }).join('');
+
+  // Auto-scroll to bottom
+  viewer.scrollTop = viewer.scrollHeight;
+}
+
+/* ================================================================
+   FILTER BAR — Check Results
+   ================================================================ */
+let currentCheckFilter = { status: 'all', search: '' };
+
+function initFilterBar() {
+  const searchInput = document.getElementById('checkSearch');
+  searchInput.addEventListener('input', (e) => {
+    currentCheckFilter.search = e.target.value;
+    renderCheckResults(currentCheckFilter);
+  });
+
+  document.querySelectorAll('[data-status]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('[data-status]').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentCheckFilter.status = chip.dataset.status;
+      renderCheckResults(currentCheckFilter);
+    });
+  });
+}
+
+/* ================================================================
+   REPORT TABS
+   ================================================================ */
+function initReportTabs() {
+  document.querySelectorAll('#reportTabs .tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#reportTabs .tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('#page-reports .tab-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Search for each report table
+  ['fb1', 'fb2', 'fb3'].forEach(prefix => {
+    const searchInput = document.getElementById(prefix + 'Search');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase();
+        const dataMap = { fb1: fubiao1Data, fb2: fubiao2Data, fb3: fubiao3Data };
+        const cols = Object.keys(dataMap[prefix][0]);
+        const filtered = dataMap[prefix].filter(row => {
+          return cols.some(c => String(row[c] ?? '').toLowerCase().includes(term));
+        });
+        const tbody = document.getElementById(prefix + 'Body');
+        const countEl = document.getElementById(prefix + 'Count');
+        tbody.innerHTML = filtered.map(row => {
+          return '<tr>' + cols.map(c => {
+            let v = row[c] ?? '';
+            if (typeof v === 'number') return `<td class="mono">${v}</td>`;
+            if (c.includes('代码')) return `<td class="code">${v}</td>`;
+            return `<td>${v}</td>`;
+          }).join('') + '</tr>';
+        }).join('');
+        countEl.textContent = `显示 ${filtered.length} / ${dataMap[prefix].length} 条`;
+      });
+    }
+  });
+}
+
+/* ================================================================
+   VALIDATION TABS
+   ================================================================ */
+function initValTabs() {
+  document.querySelectorAll('#valTabs .tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#valTabs .tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderValidationDetail(btn.dataset.valtab);
+    });
+  });
+}
+
+/* ================================================================
+   LOG FILTER
+   ================================================================ */
+function initLogFilter() {
+  document.querySelectorAll('[data-loglevel]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('[data-loglevel]').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      renderLogs(chip.dataset.loglevel);
+    });
+  });
+}
+</script>
+</body>
+</html>

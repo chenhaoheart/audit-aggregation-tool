@@ -1,6 +1,10 @@
 PySide6>=6.5.0
+PySide6-WebEngine>=6.5.0
 geopandas>=0.14.0
 pandas>=2.0.0
 openpyxl>=3.1.0
 tqdm>=4.65.0
 pyinstaller>=5.13.0
+Pillow>=9.0.0       # 图片处理、缩略图、批量缩放
+exifread>=2.3.2     # EXIF GPS 信息读取
+watchdog>=3.0.0  # 开发模式热重载

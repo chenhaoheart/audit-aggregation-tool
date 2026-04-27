@@ -43,3 +43,6 @@ Thumbs.db
 # Local settings
 *.local
 .env
+
+# Data
+data/
