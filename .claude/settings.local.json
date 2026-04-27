@@ -37,7 +37,8 @@
       "Bash(python3 -c \"import json; d=json.load\\(open\\('/d/qh-dcpj-py/空间数据检查桌面版-主题-design/config/themes/glass.json'\\)\\); print\\(f'Keys: {len\\(d[\\\\\"colors\\\\\"]\\)}'\\); print\\(f'Name: {d[\\\\\"name\\\\\"]}'\\)\")",
       "Bash(wc -l core/theme_manager.py core/stylesheet/__init__.py core/stylesheet/sections/*.py)",
       "Bash(grep:*)",
-      "Bash(start \"\" \"docs/dashboard/index.html\")"
+      "Bash(start \"\" \"docs/dashboard/index.html\")",
+      "Bash(git push *)"
     ]
   }
 }
