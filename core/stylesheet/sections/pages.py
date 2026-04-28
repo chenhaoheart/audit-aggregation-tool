@@ -433,4 +433,32 @@ QTabBar#pageTabBar::tab:selected {{
     border-bottom: 2px solid {accent};
     font-weight: 600;
 }}
+
+/* ========== Dashboard Page ========== */
+QScrollArea#dashboardScrollArea {{
+    background: transparent;
+    border: none;
+}}
+
+QTableWidget#dashboardTable {{
+    background: {theme.get('table_bg', 'transparent')};
+    border: 1px solid {border_subtle};
+    border-radius: 8px;
+    gridline-color: {theme.get('table_grid', 'transparent')};
+}}
+
+QTableWidget#dashboardTable::item {{
+    padding: 6px;
+}}
+
+QTableWidget#dashboardTable::item:selected {{
+    background: {theme.get('table_selection_bg', 'rgba(59,130,246,0.15)')};
+}}
+
+QTableWidget#dashboardTable QHeaderView::section {{
+    background: {theme.get('table_header_bg', 'rgba(0,0,0,0.03)')};
+    padding: 8px;
+    border: none;
+    font-weight: 600;
+}}
 """

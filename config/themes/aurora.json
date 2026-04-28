@@ -143,6 +143,18 @@
     "chip_text": "#00d4aa",
     "divider_color": "rgba(121,134,203,0.10)",
     "icon_muted": "#5c6bc0",
-    "icon_active": "#00d4aa"
+    "icon_active": "#00d4aa",
+    "badge_warn_bg": "rgba(255,213,79,0.15)",
+    "badge_warn_text": "#ffd54f",
+    "badge_warn_border": "rgba(255,213,79,0.25)",
+    "badge_pending_bg": "rgba(121,134,203,0.10)",
+    "badge_pending_text": "#7986cb",
+    "badge_pending_border": "rgba(121,134,203,0.20)",
+    "badge_running_bg": "rgba(0,212,170,0.12)",
+    "badge_running_text": "#00d4aa",
+    "badge_running_border": "rgba(0,212,170,0.25)",
+    "gauge_score_high": "#00e676",
+    "gauge_score_mid": "#ffd54f",
+    "gauge_score_low": "#ff6b6b"
   }
 }

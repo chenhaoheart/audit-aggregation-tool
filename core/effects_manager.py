@@ -69,7 +69,7 @@ class AnimatedWidgetMixin:
         if self._opacity_animation:
             self._opacity_animation.stop()
 
-        self._opacity_animation = QPropertyAnimation(self, "opacity")
+        self._opacity_animation = QPropertyAnimation(self, b"opacity")
         self._opacity_animation.setDuration(duration)
         self._opacity_animation.setStartValue(self._opacity)
         self._opacity_animation.setEndValue(target)
@@ -88,7 +88,7 @@ class AnimatedWidgetMixin:
         if self._scale_animation:
             self._scale_animation.stop()
 
-        self._scale_animation = QPropertyAnimation(self, "scale")
+        self._scale_animation = QPropertyAnimation(self, b"scale")
         self._scale_animation.setDuration(duration)
         self._scale_animation.setStartValue(self._scale)
         self._scale_animation.setEndValue(target)
@@ -105,15 +105,14 @@ class AnimatedWidgetMixin:
         seq = QSequentialAnimationGroup(self)
 
         # 缩小
-        shrink = QPropertyAnimation(self, "scale")
+        shrink = QPropertyAnimation(self, b"scale")
         shrink.setDuration(100)
         shrink.setStartValue(1.0)
         shrink.setEndValue(0.95)
         shrink.setEasingCurve(QEasingCurve.OutCubic)
         seq.addAnimation(shrink)
 
-        # 恢复
-        expand = QPropertyAnimation(self, "scale")
+        expand = QPropertyAnimation(self, b"scale")
         expand.setDuration(100)
         expand.setStartValue(0.95)
         expand.setEndValue(1.0)
@@ -187,8 +186,8 @@ class ShadowHelper:
             )
         else:
             return ShadowHelper.add_shadow(
-                widget, blur_radius=15, offset=(0, 4),
-                color=theme.get('shadow_color', '#00000020')
+                widget, blur_radius=12, offset=(0, 2),
+                color=theme.get('shadow_color', 'rgba(0,0,0,0.04)')
             )
 
 
@@ -352,7 +351,7 @@ class AnimationPresets:
 
         widget.setGeometry(start_geo)
 
-        anim = QPropertyAnimation(widget, "geometry")
+        anim = QPropertyAnimation(widget, b"geometry")
         anim.setDuration(duration)
         anim.setStartValue(start_geo)
         anim.setEndValue(geometry)
@@ -534,7 +533,7 @@ class PulseGlowLabel(QLabel):
         self._pulse_timer.start(interval)
 
         # 创建动画
-        self._pulse_animation = QPropertyAnimation(self, "glow_opacity")
+        self._pulse_animation = QPropertyAnimation(self, b"glow_opacity")
         self._pulse_animation.setDuration(500)
         self._pulse_animation.setStartValue(0.0)
         self._pulse_animation.setEndValue(0.8)
@@ -584,7 +583,7 @@ class AnimatedSidebar:
         target_width = self.collapsed_width if self.is_collapsed else self.expanded_width
 
         # 创建宽度动画
-        self._width_animation = QPropertyAnimation(self.sidebar, "minimumWidth")
+        self._width_animation = QPropertyAnimation(self.sidebar, b"minimumWidth")
         self._width_animation.setDuration(duration)
         self._width_animation.setStartValue(self.sidebar.width())
         self._width_animation.setEndValue(target_width)
@@ -592,8 +591,7 @@ class AnimatedSidebar:
         self._width_animation.setParent(self.sidebar)
         self._width_animation.start()
 
-        # 同时设置 maximumWidth 动画
-        self._max_width_animation = QPropertyAnimation(self.sidebar, "maximumWidth")
+        self._max_width_animation = QPropertyAnimation(self.sidebar, b"maximumWidth")
         self._max_width_animation.setDuration(duration)
         self._max_width_animation.setStartValue(self.sidebar.width())
         self._max_width_animation.setEndValue(target_width)

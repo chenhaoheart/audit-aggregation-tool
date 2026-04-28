@@ -40,5 +40,6 @@
       "Bash(start \"\" \"docs/dashboard/index.html\")",
       "Bash(git push *)"
     ]
-  }
+  },
+  "prefersReducedMotion": true
 }

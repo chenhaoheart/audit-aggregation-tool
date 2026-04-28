@@ -95,10 +95,10 @@
     "combo_border": "#c8e6c9",
     "combo_hover_border": "#43a047",
     "combo_text": "#2e4a2e",
-    "glass_bg": "rgba(255,255,255,0.80)",
+    "glass_bg": "#ffffff",
     "glass_border": "rgba(76,175,80,0.20)",
     "glass_corner_radius": "12",
-    "shadow_color": "rgba(76,175,80,0.08)",
+    "shadow_color": "rgba(67,160,71,0.05)",
     "glow_primary": "rgba(67,160,71,0.20)",
     "glow_success": "rgba(102,187,106,0.18)",
     "glow_danger": "rgba(239,83,80,0.18)",
@@ -143,6 +143,18 @@
     "chip_text": "#2e7d32",
     "divider_color": "rgba(76,175,80,0.15)",
     "icon_muted": "#81c784",
-    "icon_active": "#43a047"
+    "icon_active": "#43a047",
+    "badge_warn_bg": "rgba(249,168,37,0.12)",
+    "badge_warn_text": "#f9a825",
+    "badge_warn_border": "rgba(249,168,37,0.25)",
+    "badge_pending_bg": "rgba(74,124,74,0.10)",
+    "badge_pending_text": "#4a7c4a",
+    "badge_pending_border": "rgba(76,175,80,0.20)",
+    "badge_running_bg": "rgba(67,160,71,0.12)",
+    "badge_running_text": "#2e7d32",
+    "badge_running_border": "rgba(67,160,71,0.25)",
+    "gauge_score_high": "#43a047",
+    "gauge_score_mid": "#f9a825",
+    "gauge_score_low": "#e57373"
   }
 }

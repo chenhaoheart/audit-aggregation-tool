@@ -20,25 +20,27 @@ from core.theme_manager import get_theme_manager
 
 
 MENU_CONFIG = [
+    {"id": "dashboard", "icon": "\U0001f4ca", "text": "Dashboard\u6c47\u603b\u68c0\u67e5"},
     {"id": "check_config", "icon": "\U0001f50d", "text": "\u7a7a\u95f4\u6570\u636e\u68c0\u67e5"},
     {"id": "report", "icon": "\U0001f4c8", "text": "\u6210\u679c\u62a5\u8868\u5c55\u793a"},
-    {"id": "section_check", "icon": "\U0001f4ca", "text": "\u65ad\u9762\u6570\u636e\u68c0\u67e5"},
+    {"id": "section_check", "icon": "\U0001f4d0", "text": "\u65ad\u9762\u6570\u636e\u68c0\u67e5"},
     {"id": "photo_gallery", "icon": "\U0001f4f7", "text": "\u7167\u7247\u68c0\u67e5"},
     {"id": "shp_format", "icon": "\U0001f6e0\ufe0f", "text": "SHP\u5c5e\u6027\u683c\u5f0f\u5316"},
 ]
 
 ITEM_TO_PAGE = {
-    "check_config": 0,
-    "check_summary": 0,
-    "check_duanmian": 0,
-    "check_fangzhi": 0,
-    "check_yinhuan": 0,
-    "check_water": 0,
-    "check_map": 0,
-    "report": 1,
-    "section_check": 2,
-    "photo_gallery": 3,
-    "shp_format": 4,
+    "dashboard": 0,
+    "check_config": 1,
+    "check_summary": 1,
+    "check_duanmian": 1,
+    "check_fangzhi": 1,
+    "check_yinhuan": 1,
+    "check_water": 1,
+    "check_map": 1,
+    "report": 2,
+    "section_check": 3,
+    "photo_gallery": 4,
+    "shp_format": 5,
 }
 
 WIDTH_EXPANDED = 220
@@ -226,7 +228,7 @@ class ModernSidebar(QFrame):
 
         layout.addWidget(self._bottom)
 
-        self._on_item_clicked("check_config")
+        self._on_item_clicked("dashboard")
 
     def _on_item_clicked(self, item_id: str):
         self._current_item_id = item_id

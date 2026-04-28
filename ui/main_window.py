@@ -26,6 +26,7 @@ from ui.pages.report_page import ReportPage
 from ui.pages.section_check_page import SectionCheckPage
 from ui.pages.shp_formatter_page import ShpFormatterPage
 from ui.pages.photo_gallery_page import PhotoGalleryPage
+from ui.pages.dashboard_page import DashboardPage
 from ui.dialogs.log_dialog import LogDialog
 from core.theme_manager import get_theme_manager, ThemeMode
 from core.effects_manager import ButtonClickHelper, ButtonShadowHelper
@@ -170,6 +171,11 @@ class MainWindow(QWidget):
 
         # 页面容器
         self.page_stack = QStackedWidget()
+
+        # --- 页面0：Dashboard汇总检查 ---
+        self.dashboard_page = DashboardPage()
+        self.dashboard_page.log_message.connect(self._on_log_message)
+        self.page_stack.addWidget(self.dashboard_page)
 
         # --- 页面1：空间数据检查（使用CheckPage组件） ---
         self.check_page = CheckPage()

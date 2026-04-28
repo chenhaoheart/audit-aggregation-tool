@@ -134,4 +134,78 @@ QScrollArea > QScrollBar::add-page:horizontal,
 QScrollArea > QScrollBar::sub-page:horizontal {{
     background: transparent;
 }}
+
+/* ========== Dashboard 滚动区域 ========== */
+QScrollArea#dashboardScrollArea {{
+    background: transparent;
+    border: none;
+}}
+
+QScrollArea#dashboardScrollArea > QScrollBar:vertical {{
+    background: rgba(148,163,184,0.08);
+    width: 12px;
+    border-radius: 6px;
+    margin: 4px 2px;
+}}
+
+QScrollArea#dashboardScrollArea > QScrollBar::handle:vertical {{
+    background: rgba(100,116,139,0.35);
+    border-radius: 6px;
+    min-height: 30px;
+}}
+
+QScrollArea#dashboardScrollArea > QScrollBar::handle:vertical:hover {{
+    background: rgba(100,116,139,0.55);
+}}
+
+QScrollArea#dashboardScrollArea > QScrollBar::handle:vertical:pressed {{
+    background: rgba(100,116,139,0.70);
+}}
+
+QScrollArea#dashboardScrollArea > QScrollBar::add-line:vertical,
+QScrollArea#dashboardScrollArea > QScrollBar::sub-line:vertical {{
+    height: 0;
+    border: none;
+    background: none;
+}}
+
+QScrollArea#dashboardScrollArea > QScrollBar::add-page:vertical,
+QScrollArea#dashboardScrollArea > QScrollBar::sub-page:vertical {{
+    background: transparent;
+}}
+
+/* ========== 折叠卡片内容滚动条 ========== */
+QScrollArea#cardContentScrollArea {{
+    background: transparent;
+    border: none;
+}}
+
+QScrollArea#cardContentScrollArea > QScrollBar:vertical {{
+    background: transparent;
+    width: 6px;
+    border-radius: 3px;
+    margin: 2px 0;
+}}
+
+QScrollArea#cardContentScrollArea > QScrollBar::handle:vertical {{
+    background: rgba(148,163,184,0.25);
+    border-radius: 3px;
+    min-height: 20px;
+}}
+
+QScrollArea#cardContentScrollArea > QScrollBar::handle:vertical:hover {{
+    background: rgba(148,163,184,0.45);
+}}
+
+QScrollArea#cardContentScrollArea > QScrollBar::add-line:vertical,
+QScrollArea#cardContentScrollArea > QScrollBar::sub-line:vertical {{
+    height: 0;
+    border: none;
+    background: none;
+}}
+
+QScrollArea#cardContentScrollArea > QScrollBar::add-page:vertical,
+QScrollArea#cardContentScrollArea > QScrollBar::sub-page:vertical {{
+    background: transparent;
+}}
 """
