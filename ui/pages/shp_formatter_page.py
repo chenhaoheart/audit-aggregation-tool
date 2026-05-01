@@ -238,6 +238,7 @@ class ShpFormatterPage(QWidget):
         self.result_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.result_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.result_table.setAlternatingRowColors(False)
+        self.result_table.verticalHeader().setDefaultAlignment(Qt.AlignCenter)
         result_tab_layout.addWidget(self.result_table)
 
         self.result_tabs.addTab(result_tab, "处理结果")

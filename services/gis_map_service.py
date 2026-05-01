@@ -14,6 +14,7 @@ import json
 import os
 from typing import Dict, List, Optional, Any
 from PySide6.QtCore import QObject, Signal
+from core.config_manager import get_shp_match_config
 
 
 class GisMapService(QObject):
@@ -36,14 +37,22 @@ class GisMapService(QObject):
     LAYER_NAMES = {
         'water': '水系',
         'xiaoliuyu': '小流域',
-        'duanmian': '断面平面位置',
-        'fangzhi': '防治对象分布',
-        'yinhuan': '隐患要素分布',
+        'duanmian': '',
+        'fangzhi': '',
+        'yinhuan': '',
         'custom': '自定义图层',
     }
 
+    @classmethod
+    def _init_layer_names(cls):
+        shp_cfg = get_shp_match_config()
+        cls.LAYER_NAMES['duanmian'] = shp_cfg.get_layer_keyword('duanmian')
+        cls.LAYER_NAMES['fangzhi'] = shp_cfg.get_layer_keyword('fangzhi')
+        cls.LAYER_NAMES['yinhuan'] = shp_cfg.get_layer_keyword('yinhuan')
+
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._init_layer_names()
         self._loaded_layers: Dict[str, Dict] = {}
 
     @property
@@ -405,11 +414,11 @@ class GisMapService(QObject):
 
             if '小流域' in file_name:
                 lid = 'xiaoliuyu'
-            elif '断面平面位置' in file_name:
+            elif self.LAYER_NAMES.get('duanmian', '') and self.LAYER_NAMES['duanmian'] in file_name:
                 lid = 'duanmian'
-            elif '防治对象分布' in file_name:
+            elif self.LAYER_NAMES.get('fangzhi', '') and self.LAYER_NAMES['fangzhi'] in file_name:
                 lid = 'fangzhi'
-            elif '隐患要素分布' in file_name:
+            elif self.LAYER_NAMES.get('yinhuan', '') and self.LAYER_NAMES['yinhuan'] in file_name:
                 lid = 'yinhuan'
             else:
                 continue

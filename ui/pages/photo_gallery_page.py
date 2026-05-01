@@ -1047,6 +1047,7 @@ class PhotoGalleryPage(QWidget):
         self.list_table.horizontalHeader().setStretchLastSection(True)
         self.list_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.list_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.list_table.verticalHeader().setDefaultAlignment(Qt.AlignCenter)
         self.list_table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.list_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.list_table.setStyleSheet(f"""

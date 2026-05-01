@@ -148,7 +148,7 @@ class ModernSidebar(QFrame):
         self._nav_container.setObjectName("navContainer")
         nav_layout = QVBoxLayout(self._nav_container)
         nav_layout.setSpacing(2)
-        nav_layout.setContentsMargins(8, 8, 8, 8)
+        nav_layout.setContentsMargins(4, 8, 4, 8)
 
         for cfg in MENU_CONFIG:
             item_row = QWidget()
@@ -212,7 +212,7 @@ class ModernSidebar(QFrame):
         bottom_layout.setContentsMargins(12, 8, 12, 12)
         bottom_layout.setSpacing(8)
 
-        self.theme_btn = QPushButton("\u2699 \u4e3b\u9898\u8bbe\u7f6e")
+        self.theme_btn = QPushButton("\u2699 \u7cfb\u7edf\u53c2\u6570\u914d\u7f6e")
         self.theme_btn.setObjectName("sidebarThemeBtn")
         self.theme_btn.setCursor(Qt.PointingHandCursor)
         self.theme_btn.setFixedHeight(36)
@@ -250,13 +250,11 @@ class ModernSidebar(QFrame):
         self.item_selected.emit(item_id)
 
     def _show_theme_dialog(self):
-        from ui.dialogs.theme_dialog import ThemeDialog
-        dialog = ThemeDialog(self)
-        if dialog.exec():
-            selected = dialog.get_selected_theme()
-            if selected:
-                self.theme_manager.set_mode(selected)
-                self.theme_changed.emit(selected)
+        from ui.dialogs.system_settings_dialog import SystemSettingsDialog
+        dialog = SystemSettingsDialog(self)
+        dialog.theme_changed.connect(self.theme_changed.emit)
+        dialog.config_changed.connect(lambda: None)
+        dialog.exec()
 
     def keyPressEvent(self, event: QKeyEvent):
         if event.key() in (Qt.Key_Up, Qt.Key_Down):
@@ -325,7 +323,7 @@ class ModernSidebar(QFrame):
             self._icon_container.hide()
             self.collapse_btn.setText("\u25c0 \u6298\u53e0")
             self.collapse_btn.setFixedWidth(196)
-            self.theme_btn.setText("\u2699 \u4e3b\u9898\u8bbe\u7f6e")
+            self.theme_btn.setText("\u2699 \u7cfb\u7edf\u53c2\u6570\u914d\u7f6e")
             self.theme_btn.setFixedWidth(196)
 
     def select_item(self, item_id: str):

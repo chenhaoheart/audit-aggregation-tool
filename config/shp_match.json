@@ -1,0 +1,18 @@
+{
+  "water_system_keywords": [
+    "水系",
+    "river",
+    "rivl",
+    "rvl"
+  ],
+  "spatial_data_filenames": [
+    "防治对象分布P.shp",
+    "断面平面位置L.shp"
+  ],
+  "layer_keywords": {
+    "duanmian": "断面平面位置",
+    "fangzhi": "防治对象分布",
+    "yinhuan": "隐患要素分布",
+    "liuyu": "流域"
+  }
+}

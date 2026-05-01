@@ -9,12 +9,14 @@ from PySide6.QtWidgets import (
     QLabel, QLineEdit, QFileDialog, QTableWidget, QTableWidgetItem,
     QHeaderView, QTabWidget, QMessageBox, QAbstractItemView,
     QTextEdit, QScrollArea, QSplitter, QDialog,
-    QComboBox, QFormLayout, QGraphicsOpacityEffect
+    QComboBox, QFormLayout, QGraphicsOpacityEffect, QCheckBox
 )
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QColor, QPalette
 from core.report_reader import load_all_reports
 from core.data_validator import DataValidator
+from core.config_manager import get_validation_mapping_config
+from services.check_service import scan_shp_files
 from core.theme_manager import get_theme_manager
 from core.effects_manager import StaggerEntrance, TabFadeTransition, ButtonGlowHelper
 
@@ -236,6 +238,7 @@ class ReportPage(QWidget):
         self.fubiao1_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.fubiao1_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.fubiao1_table.setAlternatingRowColors(False)
+        self.fubiao1_table.verticalHeader().setDefaultAlignment(Qt.AlignCenter)
         self.fubiao1_table.horizontalHeader().setStretchLastSection(False)
         self.fubiao1_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         layout.addWidget(self.fubiao1_table)
@@ -274,6 +277,7 @@ class ReportPage(QWidget):
         self.fubiao2_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.fubiao2_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.fubiao2_table.setAlternatingRowColors(False)
+        self.fubiao2_table.verticalHeader().setDefaultAlignment(Qt.AlignCenter)
         self.fubiao2_table.horizontalHeader().setStretchLastSection(False)
         self.fubiao2_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         layout.addWidget(self.fubiao2_table)
@@ -312,6 +316,7 @@ class ReportPage(QWidget):
         self.fubiao3_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.fubiao3_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.fubiao3_table.setAlternatingRowColors(False)
+        self.fubiao3_table.verticalHeader().setDefaultAlignment(Qt.AlignCenter)
         self.fubiao3_table.horizontalHeader().setStretchLastSection(False)
         self.fubiao3_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         layout.addWidget(self.fubiao3_table)
@@ -1253,12 +1258,16 @@ class ValidationDialog(QDialog):
         self.report_data = None
         self.validator = None
         self.validation_results = None
-        self.fubiao1_detail_data = []  # 附表1详情数据
-        self.fubiao23_detail_data = []  # 附表2/3详情数据
-        self.fubiao1_original_data = []  # 附表1原始数据用于筛选
-        self.fubiao23_original_data = []  # 附表2/3原始数据用于筛选
+        self.fubiao1_detail_data = []
+        self.fubiao23_detail_data = []
+        self.fubiao1_original_data = []
+        self.fubiao23_original_data = []
+        self._fangzhi_path = ''
+        self._yinhuan_path = ''
+        self._spatial_folder = ''
         import copy
-        self.field_mapping = copy.deepcopy(DataValidator.DEFAULT_FIELD_MAPPING)  # 字段映射配置（深拷贝）
+        self._validation_mapping_cfg = get_validation_mapping_config()
+        self.field_mapping = copy.deepcopy(self._validation_mapping_cfg.mapping)
 
         # 获取主题管理器
         self.theme_manager = get_theme_manager()
@@ -1290,30 +1299,67 @@ class ValidationDialog(QDialog):
         group_layout = QVBoxLayout(load_card)
         group_layout.setSpacing(10)
 
-        # 第一行：文件夹选择 + 浏览按钮
+        # 第一行：空间数据文件夹（自动搜索 + 手动浏览）
         file_row = QHBoxLayout()
         shp_label = QLabel("空间数据文件夹:")
         shp_label.setObjectName("boldLabel")
         self.shp_folder_edit = QLineEdit()
-        self.shp_folder_edit.setPlaceholderText("选择包含shp文件的文件夹...")
+        self.shp_folder_edit.setPlaceholderText("加载附表后自动搜索...")
         self.shp_folder_edit.setReadOnly(True)
+        self.rescan_btn = QPushButton("重新扫描")
+        self.rescan_btn.setFixedWidth(80)
+        self.rescan_btn.setObjectName("clearBtn")
+        self.rescan_btn.clicked.connect(self._auto_search_shp)
         self.browse_btn = QPushButton("浏览...")
         self.browse_btn.setFixedWidth(80)
         self.browse_btn.clicked.connect(self.select_shp_folder)
 
         file_row.addWidget(shp_label)
         file_row.addWidget(self.shp_folder_edit, 1)
+        file_row.addWidget(self.rescan_btn)
         file_row.addWidget(self.browse_btn)
         group_layout.addLayout(file_row)
+
+        # 第二行：SHP图层匹配清单（可折叠）
+        self._shp_collapsed = False
+        shp_collapse_header = QHBoxLayout()
+        self._shp_collapse_btn = QPushButton("▼ 已识别的SHP图层")
+        self._shp_collapse_btn.setObjectName("collapseSectionBtn")
+        self._shp_collapse_btn.setFlat(True)
+        self._shp_collapse_btn.setCursor(Qt.PointingHandCursor)
+        self._shp_collapse_btn.clicked.connect(self._toggle_shp_section)
+        shp_collapse_header.addWidget(self._shp_collapse_btn)
+        shp_collapse_header.addStretch()
+        group_layout.addLayout(shp_collapse_header)
+
+        self.shp_table = QTableWidget()
+        self.shp_table.setObjectName("layerTable")
+        self.shp_table.setColumnCount(5)
+        self.shp_table.setHorizontalHeaderLabels([
+            "图层类型", "匹配状态", "SHP文件路径", "启用", "操作"
+        ])
+        self.shp_table.horizontalHeader().setStretchLastSection(False)
+        self.shp_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
+        self.shp_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.shp_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self.shp_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
+        self.shp_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Fixed)
+        self.shp_table.setColumnWidth(0, 130)
+        self.shp_table.setColumnWidth(3, 55)
+        self.shp_table.setColumnWidth(4, 90)
+        self.shp_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.shp_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.shp_table.setAlternatingRowColors(False)
+        self.shp_table.verticalHeader().setVisible(False)
+        row_height = 36
+        self.shp_table.verticalHeader().setDefaultSectionSize(row_height)
+        group_layout.addWidget(self.shp_table)
+
+        self._init_shp_table()
 
         # 第二行：按钮行
         btn_row = QHBoxLayout()
         btn_row.addStretch()
-
-        self.mapping_btn = QPushButton("字段映射")
-        self.mapping_btn.setFixedWidth(100)
-        self.mapping_btn.setEnabled(False)  # 默认禁用，选择文件夹后启用
-        self.mapping_btn.clicked.connect(self.show_field_mapping)
 
         self.validate_btn = QPushButton("开始校验")
         self.validate_btn.setFixedWidth(100)
@@ -1348,8 +1394,8 @@ class ValidationDialog(QDialog):
         btn_row.addWidget(separator1)
         btn_row.addSpacing(10)
 
-        # 第二组：字段映射
-        btn_row.addWidget(self.mapping_btn)
+        # 导出报告
+        btn_row.addWidget(self.export_btn)
         btn_row.addSpacing(10)
 
         # 分隔符
@@ -1359,18 +1405,7 @@ class ValidationDialog(QDialog):
         btn_row.addWidget(separator2)
         btn_row.addSpacing(10)
 
-        # 第三组：导出报告
-        btn_row.addWidget(self.export_btn)
-        btn_row.addSpacing(10)
-
-        # 分隔符
-        separator3 = QFrame()
-        separator3.setFrameShape(QFrame.VLine)
-        separator3.setFrameShadow(QFrame.Sunken)
-        btn_row.addWidget(separator3)
-        btn_row.addSpacing(10)
-
-        # 第四组：显示日志
+        # 显示日志
         btn_row.addWidget(self.log_toggle_btn)
         btn_row.addStretch()
         group_layout.addLayout(btn_row)
@@ -1604,63 +1639,183 @@ class ValidationDialog(QDialog):
         self.fubiao23_result_tab.setLayout(layout)
 
     def set_report_data(self, report_data):
-        """设置附表数据"""
+        """设置附表数据，并自动搜索SHP文件"""
         self.report_data = report_data
+        self._auto_search_shp()
+
+    def _auto_search_shp(self):
+        """根据附表文件路径自动搜索SHP图层"""
+        if not self.report_data:
+            return
+
+        fubiao_file = None
+        for key in ['fubiao1', 'fubiao2', 'fubiao3']:
+            f = self.report_data.get(key, {}).get('file')
+            if f:
+                fubiao_file = f
+                break
+
+        if not fubiao_file:
+            self.shp_folder_edit.setPlaceholderText("未找到附表文件路径，请手动选择...")
+            return
+
+        search_folder = os.path.dirname(fubiao_file)
+        parent_folder = os.path.dirname(search_folder)
+
+        scan_result = scan_shp_files(parent_folder)
+        layers = scan_result.get('layers', {})
+        spatial_folder = scan_result.get('spatial_folder')
+
+        fangzhi_info = layers.get('fangzhi', {})
+        yinhuan_info = layers.get('yinhuan', {})
+
+        self._fangzhi_path = fangzhi_info.get('path', '') if fangzhi_info.get('matched') else ''
+        self._yinhuan_path = yinhuan_info.get('path', '') if yinhuan_info.get('matched') else ''
+        self._spatial_folder = spatial_folder or parent_folder
+
+        self.shp_folder_edit.setText(self._spatial_folder)
+        self._update_shp_table(scan_result)
+
+        has_folder = bool(self._spatial_folder)
+        self.validate_btn.setEnabled(has_folder)
+
+    def _init_shp_table(self):
+        """初始化SHP图层表格"""
+        shp_layer_types = [
+            {'key': 'fangzhi', 'name': '防治对象分布'},
+            {'key': 'yinhuan', 'name': '隐患要素分布'},
+        ]
+        self.shp_table.setRowCount(len(shp_layer_types))
+        self._shp_checkboxes = {}
+        self._shp_path_edits = {}
+        self._shp_select_btns = {}
+
+        for row, lt in enumerate(shp_layer_types):
+            key = lt['key']
+            name_item = QTableWidgetItem(lt['name'])
+            name_item.setTextAlignment(Qt.AlignCenter)
+            self.shp_table.setItem(row, 0, name_item)
+
+            status_label = QLabel("未匹配")
+            status_label.setObjectName("layerBadgeFail")
+            status_label.setAlignment(Qt.AlignCenter)
+            status_label.setFixedHeight(22)
+            self.shp_table.setCellWidget(row, 1, status_label)
+
+            path_edit = QLineEdit()
+            path_edit.setReadOnly(True)
+            path_edit.setPlaceholderText("未找到匹配文件...")
+            path_edit.setObjectName("layerPathEdit")
+            self.shp_table.setCellWidget(row, 2, path_edit)
+            self._shp_path_edits[key] = path_edit
+
+            checkbox = QCheckBox()
+            checkbox.setChecked(True)
+            self.shp_table.setCellWidget(row, 3, checkbox)
+            self._shp_checkboxes[key] = checkbox
+
+            select_btn = QPushButton("选择文件")
+            select_btn.setFixedWidth(80)
+            select_btn.clicked.connect(lambda checked, k=key: self._select_shp_file(k))
+            self.shp_table.setCellWidget(row, 4, select_btn)
+            self._shp_select_btns[key] = select_btn
+
+        self.shp_table.resizeRowsToContents()
+        self._adjust_shp_table_height()
+
+    def _adjust_shp_table_height(self):
+        """根据行数自适应调整SHP表格高度"""
+        total_height = self.shp_table.horizontalHeader().height()
+        for row in range(self.shp_table.rowCount()):
+            total_height += self.shp_table.rowHeight(row)
+        total_height += self.shp_table.frameWidth() * 2
+        self.shp_table.setFixedHeight(total_height)
+
+    def _toggle_shp_section(self):
+        """切换SHP图层清单折叠状态"""
+        self._shp_collapsed = not self._shp_collapsed
+        if self._shp_collapsed:
+            self.shp_table.setVisible(False)
+            self._shp_collapse_btn.setText("▶ 已识别的SHP图层")
+        else:
+            self.shp_table.setVisible(True)
+            self._shp_collapse_btn.setText("▼ 已识别的SHP图层")
+
+    def _update_shp_table(self, scan_result: dict):
+        """根据扫描结果更新SHP图层表格"""
+        layers = scan_result.get('layers', {})
+        spatial_folder = scan_result.get('spatial_folder')
+
+        fangzhi_info = layers.get('fangzhi', {})
+        yinhuan_info = layers.get('yinhuan', {})
+
+        self._fangzhi_path = fangzhi_info.get('path', '') if fangzhi_info.get('matched') else ''
+        self._yinhuan_path = yinhuan_info.get('path', '') if yinhuan_info.get('matched') else ''
+        self._spatial_folder = spatial_folder or self._spatial_folder
+
+        for key, info in [('fangzhi', fangzhi_info), ('yinhuan', yinhuan_info)]:
+            path = info.get('path', '')
+            matched = info.get('matched', False)
+
+            if key in self._shp_path_edits:
+                self._shp_path_edits[key].setText(path if matched else '')
+                self._shp_path_edits[key].setPlaceholderText(
+                    path if matched else '未找到匹配文件...'
+                )
+
+            if key in self._shp_checkboxes:
+                self._shp_checkboxes[key].setChecked(matched)
+
+            row = 0 if key == 'fangzhi' else 1
+            status_label = self.shp_table.cellWidget(row, 1)
+            if status_label:
+                if matched:
+                    status_label.setText("已匹配")
+                    status_label.setObjectName("layerBadgePass")
+                else:
+                    status_label.setText("未匹配")
+                    status_label.setObjectName("layerBadgeFail")
+                status_label.style().unpolish(status_label)
+                status_label.style().polish(status_label)
+
+    def _select_shp_file(self, layer_key: str):
+        """手动选择指定图层的SHP文件"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, f"选择{'防治对象' if layer_key == 'fangzhi' else '隐患要素'}SHP文件",
+            "", "Shapefiles (*.shp)"
+        )
+        if file_path:
+            if layer_key == 'fangzhi':
+                self._fangzhi_path = file_path
+            else:
+                self._yinhuan_path = file_path
+
+            if layer_key in self._shp_path_edits:
+                self._shp_path_edits[layer_key].setText(file_path)
+
+            if layer_key in self._shp_checkboxes:
+                self._shp_checkboxes[layer_key].setChecked(True)
+
+            row = 0 if layer_key == 'fangzhi' else 1
+            status_label = self.shp_table.cellWidget(row, 1)
+            if status_label:
+                status_label.setText("已选择")
+                status_label.setObjectName("layerBadgePass")
+                status_label.style().unpolish(status_label)
+                status_label.style().polish(status_label)
+
+            if not self.validate_btn.isEnabled():
+                self.validate_btn.setEnabled(True)
 
     def select_shp_folder(self):
-        """选择空间数据文件夹"""
+        """手动选择空间数据文件夹"""
         folder = QFileDialog.getExistingDirectory(self, "选择空间数据文件夹")
         if folder:
             self.shp_folder_edit.setText(folder)
+            self._spatial_folder = folder
+            scan_result = scan_shp_files(folder)
+            self._update_shp_table(scan_result)
             self.validate_btn.setEnabled(True)
-            self.mapping_btn.setEnabled(True)  # 选择文件夹后启用
-
-    def show_field_mapping(self):
-        """显示字段映射配置对话框"""
-        shp_folder = self.shp_folder_edit.text()
-        if not shp_folder:
-            QMessageBox.warning(self, "提示", "请先选择空间数据文件夹")
-            return
-
-        # 如果还没加载shp数据，先加载
-        if not self.validator or not self.validator.shp_data.get('fangzhi'):
-            self.validator = DataValidator()
-            self.validator.progress_callback = self.append_log
-            self.validator.load_fubiao(self.report_data)
-            if not self.validator.load_shp_data(shp_folder):
-                QMessageBox.warning(self, "警告", "空间数据加载失败")
-                return
-
-        # 获取当前字段列表
-        fubiao1_fields = []
-        fubiao2_fields = []
-        fubiao3_fields = []
-        fangzhi_fields = self.validator.get_shp_fields('fangzhi')
-        yinhuan_fields = self.validator.get_shp_fields('yinhuan')
-
-        if self.report_data:
-            fubiao1_records = self.report_data.get('fubiao1', {}).get('records', [])
-            fubiao2_records = self.report_data.get('fubiao2', {}).get('records', [])
-            fubiao3_records = self.report_data.get('fubiao3', {}).get('records', [])
-
-            if fubiao1_records:
-                fubiao1_fields = [k for k in fubiao1_records[0].keys() if not k.startswith('_')]
-            if fubiao2_records:
-                fubiao2_fields = [k for k in fubiao2_records[0].keys() if not k.startswith('_')]
-            if fubiao3_records:
-                fubiao3_fields = [k for k in fubiao3_records[0].keys() if not k.startswith('_')]
-
-        # 打开映射配置对话框 - 使用新参数
-        dialog = ValidationFieldMappingDialog(
-            self,
-            fubiao1_fields, fubiao2_fields, fubiao3_fields,
-            fangzhi_fields, yinhuan_fields,
-            self.field_mapping
-        )
-        if dialog.exec() == QDialog.Accepted:
-            self.field_mapping = dialog.get_mapping()
-            self.validator.set_field_mapping(self.field_mapping)
-            self.append_log("字段映射已更新")
 
     def toggle_log(self):
         """切换日志显示"""
@@ -1681,6 +1836,14 @@ class ValidationDialog(QDialog):
     def clear_results(self):
         """清空结果"""
         self.shp_folder_edit.clear()
+        self.shp_folder_edit.setPlaceholderText("加载附表后自动搜索...")
+        self._fangzhi_path = ''
+        self._yinhuan_path = ''
+        self._spatial_folder = ''
+
+        empty_scan = {'layers': {'fangzhi': {'path': '', 'matched': False}, 'yinhuan': {'path': '', 'matched': False}}, 'spatial_folder': ''}
+        self._update_shp_table(empty_scan)
+
         self.log_text.clear()
         self.validation_results = None
         self.fubiao1_detail_data = []
@@ -1715,13 +1878,31 @@ class ValidationDialog(QDialog):
         scrollbar.setValue(scrollbar.maximum())
 
     def start_validation(self):
-        """开始校验 - 先加载shp数据，再配置字段映射，最后执行校验"""
-        shp_folder = self.shp_folder_edit.text()
-        if not shp_folder:
-            QMessageBox.warning(self, "警告", "请先选择空间数据文件夹")
+        """开始校验 - 根据勾选状态加载SHP，再配置字段映射，最后执行校验"""
+        fangzhi_enabled = self._shp_checkboxes.get('fangzhi', QCheckBox()).isChecked()
+        yinhuan_enabled = self._shp_checkboxes.get('yinhuan', QCheckBox()).isChecked()
+
+        if not fangzhi_enabled and not yinhuan_enabled:
+            QMessageBox.warning(self, "警告", "请至少启用一个SHP图层")
             return
 
-        if not os.path.exists(shp_folder):
+        has_manual_paths = False
+        load_fangzhi_path = None
+        load_yinhuan_path = None
+
+        if fangzhi_enabled and self._fangzhi_path:
+            load_fangzhi_path = self._fangzhi_path
+            has_manual_paths = True
+        if yinhuan_enabled and self._yinhuan_path:
+            load_yinhuan_path = self._yinhuan_path
+            has_manual_paths = True
+
+        shp_folder = self._spatial_folder or self.shp_folder_edit.text()
+        if not has_manual_paths and not shp_folder:
+            QMessageBox.warning(self, "警告", "请先选择空间数据文件夹或手动指定SHP文件")
+            return
+
+        if shp_folder and not os.path.exists(shp_folder):
             QMessageBox.warning(self, "警告", "空间数据文件夹不存在")
             return
 
@@ -1735,35 +1916,26 @@ class ValidationDialog(QDialog):
             self.validator.load_fubiao(self.report_data)
 
             self.append_log("正在加载空间数据...")
-            if not self.validator.load_shp_data(shp_folder):
-                QMessageBox.warning(self, "警告", "空间数据加载失败")
-                return
+            if has_manual_paths:
+                if not self.validator.load_shp_files(
+                    fangzhi_path=load_fangzhi_path if fangzhi_enabled else None,
+                    yinhuan_path=load_yinhuan_path if yinhuan_enabled else None
+                ):
+                    QMessageBox.warning(self, "警告", "空间数据加载失败")
+                    return
+            else:
+                if not self.validator.load_shp_data(shp_folder):
+                    QMessageBox.warning(self, "警告", "空间数据加载失败")
+                    return
         except Exception as e:
             QMessageBox.critical(self, "错误", f"数据加载失败:\n{e}")
             return
 
-        # 获取字段列表
-        fubiao1_fields = self.validator.get_fubiao_fields('fubiao1')
-        fubiao2_fields = self.validator.get_fubiao_fields('fubiao2')
-        fubiao3_fields = self.validator.get_fubiao_fields('fubiao3')
-        fangzhi_fields = self.validator.get_shp_fields('fangzhi')
-        yinhuan_fields = self.validator.get_shp_fields('yinhuan')
-
-        # 弹出字段映射配置对话框
-        dialog = ValidationFieldMappingDialog(
-            self,
-            fubiao1_fields, fubiao2_fields, fubiao3_fields,
-            fangzhi_fields, yinhuan_fields,
-            self.field_mapping
-        )
-        if dialog.exec() != QDialog.Accepted:
-            self.append_log("用户取消校验")
-            return
-
-        # 应用字段映射
-        self.field_mapping = dialog.get_mapping()
+        # 从系统设置读取字段映射配置
+        import copy
+        self.field_mapping = copy.deepcopy(self._validation_mapping_cfg.mapping)
         self.validator.set_field_mapping(self.field_mapping)
-        self.append_log("字段映射配置完成，开始校验...")
+        self.append_log("已加载系统设置中的字段映射配置，开始校验...")
 
         try:
             self.validation_results = self.validator.validate_all()
@@ -2541,417 +2713,6 @@ class ValidationDialog(QDialog):
 
             except Exception as e:
                 QMessageBox.critical(self, "错误", f"导出失败:\n{str(e)}")
-
-    def showEvent(self, event):
-        """对话框显示事件——首次显示时播放入场动画"""
-        super().showEvent(event)
-        if not hasattr(self, '_animated'):
-            self._animated = True
-            self._animate_entrance()
-
-    def _animate_entrance(self):
-        """淡入入场动画：200ms, OutCubic"""
-        effect = QGraphicsOpacityEffect(self)
-        self.setGraphicsEffect(effect)
-        effect.setOpacity(0.0)
-
-        anim = QPropertyAnimation(effect, b"opacity")
-        anim.setDuration(200)
-        anim.setStartValue(0.0)
-        anim.setEndValue(1.0)
-        anim.setEasingCurve(QEasingCurve.OutCubic)
-        anim.finished.connect(lambda: self.setGraphicsEffect(None))
-        anim.start()
-        self._entrance_anim = anim  # 保持引用防止被 GC
-
-
-class ValidationFieldMappingDialog(QDialog):
-    """字段映射配置对话框 - 以shp字段为主，映射到附表字段（校验专用）"""
-
-    def __init__(self, parent, fubiao1_fields, fubiao2_fields, fubiao3_fields, fangzhi_fields, yinhuan_fields, current_mapping):
-        super().__init__(parent)
-        self.setWindowTitle("字段映射配置")
-        self.setMinimumSize(700, 600)
-        self.fubiao1_fields = fubiao1_fields or []  # 附表1字段
-        self.fubiao2_fields = fubiao2_fields or []  # 附表2字段
-        self.fubiao3_fields = fubiao3_fields or []  # 附表3字段
-        self.fangzhi_fields = fangzhi_fields or []  # 防治对象shp字段
-        self.yinhuan_fields = yinhuan_fields or []  # 隐患要素shp字段
-        self.current_mapping = current_mapping.copy()
-        self.combos = {}  # 保存所有下拉框引用
-
-        # 设置对话框背景色
-        self.theme_manager = get_theme_manager()
-        theme = self.theme_manager.get_current_theme()
-        palette = self.palette()
-        palette.setColor(QPalette.Window, QColor(theme['content_bg']))
-        self.setPalette(palette)
-        self.setAutoFillBackground(True)
-        self.setStyleSheet(self.theme_manager.get_stylesheet())
-
-        self.init_ui()
-
-    def init_ui(self):
-        layout = QVBoxLayout()
-
-        # 说明
-        info_label = QLabel("配置shp字段与附表字段的对应关系。左侧为shp字段，右侧选择对应的附表字段。")
-        info_label.setObjectName("secondaryLabel")
-        layout.addWidget(info_label)
-
-        # Tab区域
-        tabs = QTabWidget()
-
-        # === 防治对象 ↔ 附表1 映射Tab ===
-        tab1 = QWidget()
-        tab1_layout = QVBoxLayout()
-        tab1_layout.setContentsMargins(0, 4, 0, 4)
-
-        match_header1 = QLabel("匹配字段（用于记录匹配）")
-        match_header1.setObjectName("sectionHeaderMd")
-        tab1_layout.addWidget(match_header1)
-        match_card1 = QFrame()
-        match_card1.setObjectName("card")
-        match_layout1 = QFormLayout(match_card1)
-        self.combos['fangzhi_名称'] = self.create_combo(self.fubiao1_fields, '')
-        self.combos['fangzhi_代码'] = self.create_combo(self.fubiao1_fields, '')
-        match_layout1.addRow("shp[名称] →", self.combos['fangzhi_名称'])
-        match_layout1.addRow("shp[代码] →", self.combos['fangzhi_代码'])
-        tab1_layout.addWidget(match_card1)
-
-        detail_header1 = QLabel("详情字段（用于对比展示）")
-        detail_header1.setObjectName("sectionHeaderMd")
-        tab1_layout.addWidget(detail_header1)
-        detail_card1 = QFrame()
-        detail_card1.setObjectName("card")
-        detail_layout1 = QFormLayout(detail_card1)
-        match_shp_fields = ['名称', '代码']
-        for shp_field in self.fangzhi_fields:
-            if shp_field in match_shp_fields or shp_field.startswith('_'):
-                continue
-            key = f'fangzhi_{shp_field}'
-            self.combos[key] = self.create_combo(self.fubiao1_fields, '')
-            detail_layout1.addRow(f"shp[{shp_field}] →", self.combos[key])
-        tab1_layout.addWidget(detail_card1)
-
-        auto_btn1 = QPushButton("自动匹配")
-        auto_btn1.clicked.connect(self.auto_match_fubiao1)
-        tab1_layout.addWidget(auto_btn1)
-        tab1_layout.addStretch()
-        tab1.setLayout(tab1_layout)
-        tabs.addTab(tab1, "防治对象 ↔ 附表1")
-
-        # === 隐患要素 ↔ 附表2 映射Tab ===
-        tab2 = QWidget()
-        tab2_layout = QVBoxLayout()
-        tab2_layout.setContentsMargins(0, 4, 0, 4)
-
-        match_header2 = QLabel("匹配字段（用于记录匹配）")
-        match_header2.setObjectName("sectionHeaderMd")
-        tab2_layout.addWidget(match_header2)
-        match_card2 = QFrame()
-        match_card2.setObjectName("card")
-        match_layout2 = QFormLayout(match_card2)
-        self.combos['yinhuan2_名称'] = self.create_combo(self.fubiao2_fields, '')
-        self.combos['yinhuan2_编号'] = self.create_combo(self.fubiao2_fields, '')
-        match_layout2.addRow("shp[名称] →", self.combos['yinhuan2_名称'])
-        match_layout2.addRow("shp[编号] →", self.combos['yinhuan2_编号'])
-        tab2_layout.addWidget(match_card2)
-
-        detail_header2 = QLabel("详情字段（用于对比展示）")
-        detail_header2.setObjectName("sectionHeaderMd")
-        tab2_layout.addWidget(detail_header2)
-        detail_card2 = QFrame()
-        detail_card2.setObjectName("card")
-        detail_layout2 = QFormLayout(detail_card2)
-        match_shp_fields2 = ['名称', '编号']
-        for shp_field in self.yinhuan_fields:
-            if shp_field in match_shp_fields2 or shp_field.startswith('_'):
-                continue
-            key = f'yinhuan2_{shp_field}'
-            self.combos[key] = self.create_combo(self.fubiao2_fields, '')
-            detail_layout2.addRow(f"shp[{shp_field}] →", self.combos[key])
-        tab2_layout.addWidget(detail_card2)
-
-        auto_btn2 = QPushButton("自动匹配")
-        auto_btn2.clicked.connect(self.auto_match_fubiao2)
-        tab2_layout.addWidget(auto_btn2)
-        tab2_layout.addStretch()
-        tab2.setLayout(tab2_layout)
-        tabs.addTab(tab2, "隐患要素 ↔ 附表2")
-
-        # === 隐患要素 ↔ 附表3 映射Tab ===
-        tab3 = QWidget()
-        tab3_layout = QVBoxLayout()
-        tab3_layout.setContentsMargins(0, 4, 0, 4)
-
-        match_header3 = QLabel("匹配字段（用于记录匹配）")
-        match_header3.setObjectName("sectionHeaderMd")
-        tab3_layout.addWidget(match_header3)
-        match_card3 = QFrame()
-        match_card3.setObjectName("card")
-        match_layout3 = QFormLayout(match_card3)
-        self.combos['yinhuan3_名称'] = self.create_combo(self.fubiao3_fields, '')
-        self.combos['yinhuan3_编号'] = self.create_combo(self.fubiao3_fields, '')
-        match_layout3.addRow("shp[名称] →", self.combos['yinhuan3_名称'])
-        match_layout3.addRow("shp[编号] →", self.combos['yinhuan3_编号'])
-        tab3_layout.addWidget(match_card3)
-
-        detail_header3 = QLabel("详情字段（用于对比展示）")
-        detail_header3.setObjectName("sectionHeaderMd")
-        tab3_layout.addWidget(detail_header3)
-        detail_card3 = QFrame()
-        detail_card3.setObjectName("card")
-        detail_layout3 = QFormLayout(detail_card3)
-        for shp_field in self.yinhuan_fields:
-            if shp_field in match_shp_fields2 or shp_field.startswith('_'):
-                continue
-            key = f'yinhuan3_{shp_field}'
-            self.combos[key] = self.create_combo(self.fubiao3_fields, '')
-            detail_layout3.addRow(f"shp[{shp_field}] →", self.combos[key])
-        tab3_layout.addWidget(detail_card3)
-
-        auto_btn3 = QPushButton("自动匹配")
-        auto_btn3.clicked.connect(self.auto_match_fubiao3)
-        tab3_layout.addWidget(auto_btn3)
-        tab3_layout.addStretch()
-        tab3.setLayout(tab3_layout)
-        tabs.addTab(tab3, "隐患要素 ↔ 附表3")
-
-        layout.addWidget(tabs)
-
-        # 按钮
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
-        ok_btn = QPushButton("确定")
-        ok_btn.clicked.connect(self.accept)
-        cancel_btn = QPushButton("取消")
-        cancel_btn.clicked.connect(self.reject)
-        btn_layout.addWidget(ok_btn)
-        btn_layout.addWidget(cancel_btn)
-        layout.addLayout(btn_layout)
-
-        self.setLayout(layout)
-        self.load_current_mapping()
-
-    def create_combo(self, fields, default_value):
-        """创建下拉框 - 从附表字段列表创建"""
-        combo = QComboBox()
-        combo.addItem("-- 不映射 --", "")
-        for field in fields:
-            combo.addItem(field, field)
-        # 设置默认值
-        if default_value:
-            idx = combo.findData(default_value)
-            if idx >= 0:
-                combo.setCurrentIndex(idx)
-        return combo
-
-    def load_current_mapping(self):
-        """加载当前映射配置"""
-        # 新格式：{shp字段: 附表字段}
-        mapping1 = self.current_mapping.get('fubiao1_vs_fangzhi', {})
-        match_fields1 = mapping1.get('match_fields', {})
-        detail_fields1 = mapping1.get('detail_fields', {})
-
-        mapping23 = self.current_mapping.get('fubiao23_vs_yinhuan', {})
-        match_fields23 = mapping23.get('match_fields', {})
-        detail_fields23 = mapping23.get('detail_fields', {})
-
-        # 设置防治对象下拉框
-        self.set_combo_value('fangzhi_名称', match_fields1.get('名称', ''))
-        self.set_combo_value('fangzhi_代码', match_fields1.get('代码', ''))
-        for shp_field, fubiao_field in detail_fields1.items():
-            key = f'fangzhi_{shp_field}'
-            self.set_combo_value(key, fubiao_field)
-
-        # 设置附表2隐患要素下拉框
-        mapping2 = self.current_mapping.get('fubiao2_vs_yinhuan', {})
-        match_fields2 = mapping2.get('match_fields', {})
-        detail_fields2 = mapping2.get('detail_fields', {})
-        self.set_combo_value('yinhuan2_名称', match_fields2.get('名称', ''))
-        self.set_combo_value('yinhuan2_编号', match_fields2.get('编号', ''))
-        for shp_field, fubiao_field in detail_fields2.items():
-            key = f'yinhuan2_{shp_field}'
-            self.set_combo_value(key, fubiao_field)
-
-        # 设置附表3隐患要素下拉框
-        mapping3 = self.current_mapping.get('fubiao3_vs_yinhuan', {})
-        match_fields3 = mapping3.get('match_fields', {})
-        detail_fields3 = mapping3.get('detail_fields', {})
-        self.set_combo_value('yinhuan3_名称', match_fields3.get('名称', ''))
-        self.set_combo_value('yinhuan3_编号', match_fields3.get('编号', ''))
-        for shp_field, fubiao_field in detail_fields3.items():
-            key = f'yinhuan3_{shp_field}'
-            self.set_combo_value(key, fubiao_field)
-
-    def set_combo_value(self, key, value):
-        """设置下拉框值"""
-        if key in self.combos and value:
-            combo = self.combos[key]
-            idx = combo.findData(value)
-            if idx >= 0:
-                combo.setCurrentIndex(idx)
-
-    def auto_match_fubiao1(self):
-        """自动匹配防治对象字段 - 根据shp字段名模糊匹配附表字段"""
-        if not self.fubiao1_fields:
-            QMessageBox.warning(self, "提示", "附表字段列表为空")
-            return
-
-        auto_map = {
-            '名称': self._find_field(self.fubiao1_fields, '名称'),
-            '代码': self._find_field(self.fubiao1_fields, '代码'),
-            '类型': self._find_field(self.fubiao1_fields, '类型'),
-            '人口': self._find_field(self.fubiao1_fields, '人口'),
-            '河流名称': self._find_field(self.fubiao1_fields, '河流名称'),
-            '河流代码': self._find_field(self.fubiao1_fields, '河流代码'),
-        }
-
-        for shp_field, fubiao_field in auto_map.items():
-            if fubiao_field:
-                key = f'fangzhi_{shp_field}'
-                self.set_combo_value(key, fubiao_field)
-
-        QMessageBox.information(self, "完成", "已自动匹配字段")
-
-    def auto_match_fubiao2(self):
-        """自动匹配附表2字段"""
-        if not self.fubiao2_fields:
-            QMessageBox.warning(self, "提示", "附表2字段列表为空")
-            return
-
-        auto_map = {
-            '名称': self._find_field(self.fubiao2_fields, '名称'),
-            '编号': self._find_field(self.fubiao2_fields, '编码') or self._find_field(self.fubiao2_fields, '编号'),
-            '类型': self._find_field(self.fubiao2_fields, '类型'),
-            '河流名称': self._find_field(self.fubiao2_fields, '河流名称'),
-            '河流代码': self._find_field(self.fubiao2_fields, '河流代码'),
-            '经度': self._find_field(self.fubiao2_fields, '经度'),
-            '纬度': self._find_field(self.fubiao2_fields, '纬度'),
-        }
-
-        for shp_field, fubiao_field in auto_map.items():
-            if fubiao_field:
-                key = f'yinhuan2_{shp_field}'
-                self.set_combo_value(key, fubiao_field)
-
-        QMessageBox.information(self, "完成", "已自动匹配字段")
-
-    def auto_match_fubiao3(self):
-        """自动匹配附表3字段"""
-        if not self.fubiao3_fields:
-            QMessageBox.warning(self, "提示", "附表3字段列表为空")
-            return
-
-        auto_map = {
-            '名称': self._find_field(self.fubiao3_fields, '名称'),
-            '编号': self._find_field(self.fubiao3_fields, '编码') or self._find_field(self.fubiao3_fields, '编号'),
-            '类型': self._find_field(self.fubiao3_fields, '类型'),
-            '河流名称': self._find_field(self.fubiao3_fields, '河流名称'),
-            '河流代码': self._find_field(self.fubiao3_fields, '河流代码'),
-            '经度': self._find_field(self.fubiao3_fields, '经度'),
-            '纬度': self._find_field(self.fubiao3_fields, '纬度'),
-        }
-
-        for shp_field, fubiao_field in auto_map.items():
-            if fubiao_field:
-                key = f'yinhuan3_{shp_field}'
-                self.set_combo_value(key, fubiao_field)
-
-        QMessageBox.information(self, "完成", "已自动匹配字段")
-
-    def _find_field(self, field_list, keyword):
-        """在字段列表中模糊查找包含关键词的字段"""
-        for field in field_list:
-            if keyword in field:
-                return field
-        return None
-
-    def get_mapping(self):
-        """获取映射配置 - 返回 {shp字段: 附表字段} 格式"""
-        # 构建防治对象映射
-        match_fields1 = {}
-        detail_fields1 = {}
-
-        if 'fangzhi_名称' in self.combos:
-            val = self.combos['fangzhi_名称'].currentData()
-            if val:
-                match_fields1['名称'] = val
-        if 'fangzhi_代码' in self.combos:
-            val = self.combos['fangzhi_代码'].currentData()
-            if val:
-                match_fields1['代码'] = val
-
-        match_shp_fields = ['名称', '代码']
-        for shp_field in self.fangzhi_fields:
-            if shp_field in match_shp_fields or shp_field.startswith('_'):
-                continue
-            key = f'fangzhi_{shp_field}'
-            if key in self.combos:
-                val = self.combos[key].currentData()
-                if val:
-                    detail_fields1[shp_field] = val
-
-        # 构建附表2隐患要素映射
-        match_fields2 = {}
-        detail_fields2 = {}
-
-        if 'yinhuan2_名称' in self.combos:
-            val = self.combos['yinhuan2_名称'].currentData()
-            if val:
-                match_fields2['名称'] = val
-        if 'yinhuan2_编号' in self.combos:
-            val = self.combos['yinhuan2_编号'].currentData()
-            if val:
-                match_fields2['编号'] = val
-
-        match_shp_fields2 = ['名称', '编号']
-        for shp_field in self.yinhuan_fields:
-            if shp_field in match_shp_fields2 or shp_field.startswith('_'):
-                continue
-            key = f'yinhuan2_{shp_field}'
-            if key in self.combos:
-                val = self.combos[key].currentData()
-                if val:
-                    detail_fields2[shp_field] = val
-
-        # 构建附表3隐患要素映射
-        match_fields3 = {}
-        detail_fields3 = {}
-
-        if 'yinhuan3_名称' in self.combos:
-            val = self.combos['yinhuan3_名称'].currentData()
-            if val:
-                match_fields3['名称'] = val
-        if 'yinhuan3_编号' in self.combos:
-            val = self.combos['yinhuan3_编号'].currentData()
-            if val:
-                match_fields3['编号'] = val
-
-        for shp_field in self.yinhuan_fields:
-            if shp_field in match_shp_fields2 or shp_field.startswith('_'):
-                continue
-            key = f'yinhuan3_{shp_field}'
-            if key in self.combos:
-                val = self.combos[key].currentData()
-                if val:
-                    detail_fields3[shp_field] = val
-
-        return {
-            'fubiao1_vs_fangzhi': {
-                'match_fields': match_fields1,
-                'detail_fields': detail_fields1
-            },
-            'fubiao2_vs_yinhuan': {
-                'match_fields': match_fields2,
-                'detail_fields': detail_fields2
-            },
-            'fubiao3_vs_yinhuan': {
-                'match_fields': match_fields3,
-                'detail_fields': detail_fields3
-            }
-        }
 
     def showEvent(self, event):
         """对话框显示事件——首次显示时播放入场动画"""

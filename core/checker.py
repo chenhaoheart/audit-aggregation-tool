@@ -9,6 +9,7 @@ import re
 import geopandas as gpd
 import pandas as pd
 from datetime import datetime
+from core.config_manager import get_shp_match_config
 
 
 def _detect_dbf_encoding(shp_path):
@@ -53,9 +54,10 @@ def _detect_dbf_encoding(shp_path):
 
 
 class WaterSystemChecker:
-    def __init__(self, folder_path, water_system_shp):
+    def __init__(self, folder_path, water_system_shp=None):
         self.folder_path = folder_path
         self.water_system_shp = water_system_shp
+        self.has_water_system = water_system_shp is not None
 
         self.water_codes = set()
         self.water_names = set()
@@ -294,8 +296,10 @@ class WaterSystemChecker:
             list: 包含目标shp文件的文件夹路径列表
         """
         # 目标文件列表
-        target_files = ['断面平面位置L.shp', '防治对象分布P.shp']
-        target_keywords = ['隐患要素分布', '隐患要素分布L']
+        shp_cfg = get_shp_match_config()
+        target_files = shp_cfg.spatial_data_filenames
+        yinhuan_kw = shp_cfg.get_layer_keyword('yinhuan')
+        target_keywords = [yinhuan_kw] if yinhuan_kw else []
 
         folders_with_shp = set()
 
@@ -326,11 +330,17 @@ class WaterSystemChecker:
         mc = str(mc_val).strip() if mc_val is not None else ''
 
         code_len_valid = '是' if len(rvcd) == 17 else '否'
-        code_in_water = '是' if rvcd.upper() in self.water_codes else '否'
 
-        water_name = self.water_code_to_name.get(rvcd.upper(), '')
-        name_match_water = '是' if water_name and rvnm.upper() == water_name.upper() else '否'
-        name_in_water = '是' if rvnm.upper() in self.water_names else '否'
+        if self.has_water_system:
+            code_in_water = '是' if rvcd.upper() in self.water_codes else '否'
+            water_name = self.water_code_to_name.get(rvcd.upper(), '')
+            name_match_water = '是' if water_name and rvnm.upper() == water_name.upper() else '否'
+            name_in_water = '是' if rvnm.upper() in self.water_names else '否'
+        else:
+            code_in_water = '未检查'
+            name_match_water = '未检查'
+            name_in_water = '未检查'
+            water_name = ''
 
         bh_len_valid = '是' if len(bh) == 23 else '否'
         bh_code_match = '是' if len(bh) >= 17 and bh[:17].upper() == rvcd.upper() else '否'
@@ -356,7 +366,7 @@ class WaterSystemChecker:
         if code_len_valid == '否':
             error_msgs.append(f'河流代码长度{len(rvcd)}位(应为17位)')
 
-        if rvcd:
+        if self.has_water_system and rvcd:
             if code_in_water == '否':
                 error_msgs.append(f'河流代码[{rvcd}]不在水系中')
                 if rvnm:
@@ -381,9 +391,14 @@ class WaterSystemChecker:
         if dm_name_match_rvnm == '否' and cs_format_valid == '是' and extracted_rvnm:
             error_msgs.append(f'断面名称[{mc}]中CS前河流名称[{extracted_rvnm}]与河流名称[{rvnm}]不一致')
 
-        is_valid = all([code_len_valid == '是', code_in_water == '是', name_match_water == '是',
-                        bh_len_valid == '是', bh_code_match == '是', bh_name_match == '是',
-                        cs_format_valid == '是', dm_name_match_rvnm == '是'])
+        if self.has_water_system:
+            is_valid = all([code_len_valid == '是', code_in_water == '是', name_match_water == '是',
+                            bh_len_valid == '是', bh_code_match == '是', bh_name_match == '是',
+                            cs_format_valid == '是', dm_name_match_rvnm == '是'])
+        else:
+            is_valid = all([code_len_valid == '是',
+                            bh_len_valid == '是', bh_code_match == '是', bh_name_match == '是',
+                            cs_format_valid == '是', dm_name_match_rvnm == '是'])
 
         return {
             '河流代码': rvcd,
@@ -412,16 +427,22 @@ class WaterSystemChecker:
         rvnm = str(rvnm_val).strip() if rvnm_val is not None else ''
 
         code_len_valid = '是' if len(rvcd) == 17 else '否'
-        code_in_water = '是' if rvcd.upper() in self.water_codes else '否'
 
-        water_name = self.water_code_to_name.get(rvcd.upper(), '')
-        name_match_water = '是' if water_name and rvnm.upper() == water_name.upper() else '否'
-        name_in_water = '是' if rvnm.upper() in self.water_names else '否'
+        if self.has_water_system:
+            code_in_water = '是' if rvcd.upper() in self.water_codes else '否'
+            water_name = self.water_code_to_name.get(rvcd.upper(), '')
+            name_match_water = '是' if water_name and rvnm.upper() == water_name.upper() else '否'
+            name_in_water = '是' if rvnm.upper() in self.water_names else '否'
+        else:
+            code_in_water = '未检查'
+            name_match_water = '未检查'
+            name_in_water = '未检查'
+            water_name = ''
 
         if code_len_valid == '否':
             error_msgs.append(f'河流代码长度{len(rvcd)}位(应为17位)')
 
-        if rvcd:
+        if self.has_water_system and rvcd:
             if code_in_water == '否':
                 error_msgs.append(f'河流代码[{rvcd}]不在水系中')
                 if rvnm:
@@ -435,7 +456,10 @@ class WaterSystemChecker:
                 elif name_in_water == '否' and rvnm:
                     error_msgs.append(f'河流名称[{rvnm}]不在水系中')
 
-        is_valid = all([code_len_valid == '是', code_in_water == '是', name_match_water == '是'])
+        if self.has_water_system:
+            is_valid = all([code_len_valid == '是', code_in_water == '是', name_match_water == '是'])
+        else:
+            is_valid = code_len_valid == '是'
 
         return {
             '河流代码': rvcd,
@@ -458,11 +482,17 @@ class WaterSystemChecker:
         bh = str(bh_val).strip() if bh_val is not None else ''
 
         code_len_valid = '是' if len(rvcd) == 17 else '否'
-        code_in_water = '是' if rvcd.upper() in self.water_codes else '否'
 
-        water_name = self.water_code_to_name.get(rvcd.upper(), '')
-        name_match_water = '是' if water_name and rvnm.upper() == water_name.upper() else '否'
-        name_in_water = '是' if rvnm.upper() in self.water_names else '否'
+        if self.has_water_system:
+            code_in_water = '是' if rvcd.upper() in self.water_codes else '否'
+            water_name = self.water_code_to_name.get(rvcd.upper(), '')
+            name_match_water = '是' if water_name and rvnm.upper() == water_name.upper() else '否'
+            name_in_water = '是' if rvnm.upper() in self.water_names else '否'
+        else:
+            code_in_water = '未检查'
+            name_match_water = '未检查'
+            name_in_water = '未检查'
+            water_name = ''
 
         bh_len_valid = '是' if len(bh) == 28 else '否'
         bh_district_valid = '是' if len(bh) >= 6 and bh[:6].isdigit() else '否'
@@ -471,7 +501,7 @@ class WaterSystemChecker:
         if code_len_valid == '否':
             error_msgs.append(f'河流代码长度{len(rvcd)}位(应为17位)')
 
-        if rvcd:
+        if self.has_water_system and rvcd:
             if code_in_water == '否':
                 error_msgs.append(f'河流代码[{rvcd}]不在水系中')
                 if rvnm:
@@ -492,8 +522,12 @@ class WaterSystemChecker:
         if bh_code_match == '否' and len(bh) >= 23:
             error_msgs.append(f'编号7-23位与河流代码不一致')
 
-        is_valid = all([code_len_valid == '是', code_in_water == '是', name_match_water == '是',
-                        bh_len_valid == '是', bh_district_valid == '是', bh_code_match == '是'])
+        if self.has_water_system:
+            is_valid = all([code_len_valid == '是', code_in_water == '是', name_match_water == '是',
+                            bh_len_valid == '是', bh_district_valid == '是', bh_code_match == '是'])
+        else:
+            is_valid = all([code_len_valid == '是',
+                            bh_len_valid == '是', bh_district_valid == '是', bh_code_match == '是'])
 
         return {
             '河流代码': rvcd,
@@ -590,11 +624,12 @@ class WaterSystemChecker:
                     result['invalid_records'] += 1
 
             uniqueness_field = None
-            if '断面平面位置' in shp_name:
+            shp_cfg = get_shp_match_config()
+            if shp_cfg.get_layer_keyword('duanmian') in shp_name:
                 uniqueness_field = '编号'
-            elif '防治对象分布' in shp_name:
+            elif shp_cfg.get_layer_keyword('fangzhi') in shp_name:
                 uniqueness_field = '代码'
-            elif '隐患要素分布' in shp_name:
+            elif shp_cfg.get_layer_keyword('yinhuan') in shp_name:
                 uniqueness_field = '编号'
 
             result['duplicate_records'] = 0
@@ -643,16 +678,20 @@ class WaterSystemChecker:
         self.emit_progress("开始检查...")
         self.emit_progress("=" * 60)
 
-        if not self.load_water_system():
-            self.emit_progress("❌ 水系数据加载失败，程序退出")
-            return []
+        if self.has_water_system:
+            if not self.load_water_system():
+                self.emit_progress("❌ 水系数据加载失败，程序退出")
+                return []
+        else:
+            self.emit_progress("⚠️ 未提供水系SHP文件，跳过水系关联检查，仅执行图层自检")
 
         self.emit_progress("开始检查各图层...")
 
+        shp_cfg = get_shp_match_config()
         layer_configs = [
-            ('断面平面位置L.shp', self.validate_duanmian, ['河流代码', '河流名称', '编号', '名称'], False),
-            ('防治对象分布P.shp', self.validate_fangzhi, ['河流代码', '河流名称'], False),
-            ('隐患要素分布', self.validate_yinhuan, ['河流代码', '河流名称', '编号'], True)
+            (shp_cfg.get_layer_keyword('duanmian') + 'L.shp', self.validate_duanmian, ['河流代码', '河流名称', '编号', '名称'], False),
+            (shp_cfg.get_layer_keyword('fangzhi') + 'P.shp', self.validate_fangzhi, ['河流代码', '河流名称'], False),
+            (shp_cfg.get_layer_keyword('yinhuan'), self.validate_yinhuan, ['河流代码', '河流名称', '编号'], True)
         ]
 
         # 查找待检查的文件夹列表 - 使用递归搜索

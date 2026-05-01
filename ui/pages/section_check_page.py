@@ -400,6 +400,7 @@ class SectionCheckPage(QWidget):
         self.issues_table.setColumnWidth(2, 120)
         self.issues_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.issues_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.issues_table.verticalHeader().setDefaultAlignment(Qt.AlignCenter)
         issues_layout.addWidget(self.issues_table)
         self.detail_tabs.addTab(issues_tab, "校验问题")
 

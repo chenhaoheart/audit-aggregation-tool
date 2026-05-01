@@ -328,6 +328,7 @@ class GisMapDialog(QDialog):
         self.attr_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.attr_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.attr_table.setAlternatingRowColors(False)
+        self.attr_table.verticalHeader().setDefaultAlignment(Qt.AlignCenter)
         self.attr_table.horizontalHeader().setStretchLastSection(False)
         self.attr_table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         self.attr_table.verticalHeader().setDefaultSectionSize(24)

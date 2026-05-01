@@ -38,6 +38,12 @@ QLineEdit#filterEdit {{
     font-size: 12px;
 }}
 
+QLineEdit#layerPathEdit {{
+    border-radius: 2px;
+    padding: 2px 6px;
+    font-size: 12px;
+}}
+
 /* ========== 文本编辑 ========== */
 QTextEdit {{
     border: 1px solid {theme['input_border']};

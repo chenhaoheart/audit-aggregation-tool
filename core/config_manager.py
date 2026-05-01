@@ -47,6 +47,19 @@ DEFAULT_RULES = [
     }
 ]
 
+DEFAULT_SHP_MATCH = {
+    "water_system_keywords": ["水系", "river", "rivl"],
+    "spatial_data_filenames": ["防治对象分布P.shp", "断面平面位置L.shp"],
+    "layer_keywords": {
+        "duanmian": "断面平面位置",
+        "fangzhi": "防治对象分布",
+        "yinhuan": "隐患要素分布",
+        "liuyu": "流域"
+    }
+}
+
+SHP_MATCH_CONFIG_FILE = "shp_match.json"
+
 # 关键字段列表（必须存在且有值）
 CRITICAL_TARGETS = ["名称"]
 
@@ -322,6 +335,193 @@ class FieldMappingConfig:
                 if keyword in filename:
                     return rule
         return None
+
+
+class ShpMatchConfig:
+    """SHP文件匹配配置管理器"""
+
+    def __init__(self, config_dir: str = None):
+        if config_dir is None:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_dir = os.path.dirname(current_dir)
+            config_dir = os.path.join(project_dir, "config")
+
+        self.config_dir = config_dir
+        self.config_file = os.path.join(config_dir, SHP_MATCH_CONFIG_FILE)
+        self._config = None
+        self._ensure_config_dir()
+
+    def _ensure_config_dir(self):
+        if not os.path.exists(self.config_dir):
+            os.makedirs(self.config_dir, exist_ok=True)
+
+    @property
+    def config(self) -> Dict[str, Any]:
+        if self._config is not None:
+            return self._config
+
+        if os.path.exists(self.config_file):
+            try:
+                with open(self.config_file, 'r', encoding='utf-8') as f:
+                    self._config = json.load(f)
+                    return self._config
+            except Exception:
+                pass
+
+        self._config = copy.deepcopy(DEFAULT_SHP_MATCH)
+        return self._config
+
+    @property
+    def water_system_keywords(self) -> List[str]:
+        return self.config.get('water_system_keywords', DEFAULT_SHP_MATCH['water_system_keywords'])
+
+    @property
+    def spatial_data_filenames(self) -> List[str]:
+        return self.config.get('spatial_data_filenames', DEFAULT_SHP_MATCH['spatial_data_filenames'])
+
+    @property
+    def layer_keywords(self) -> Dict[str, str]:
+        return self.config.get('layer_keywords', DEFAULT_SHP_MATCH['layer_keywords'])
+
+    def match_water_system(self, filename: str) -> bool:
+        f_lower = filename.lower()
+        for kw in self.water_system_keywords:
+            if kw.isascii():
+                if kw.lower() in f_lower:
+                    return True
+            else:
+                if kw in filename:
+                    return True
+        return False
+
+    def match_spatial_data_file(self, filename: str) -> bool:
+        return filename in self.spatial_data_filenames
+
+    def get_layer_keyword(self, layer_key: str) -> str:
+        return self.layer_keywords.get(layer_key, '')
+
+    def save_config(self, config: Dict[str, Any]) -> bool:
+        try:
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+            self._config = config
+            return True
+        except Exception as e:
+            print(f"保存SHP匹配配置失败: {e}")
+            return False
+
+    def reset_to_default(self) -> bool:
+        self._config = copy.deepcopy(DEFAULT_SHP_MATCH)
+        return self.save_config(self._config)
+
+
+VALIDATION_MAPPING_CONFIG_FILE = "validation_field_mapping.json"
+
+DEFAULT_VALIDATION_FIELD_MAPPING = {
+    'fubiao1_vs_fangzhi': {
+        'match_fields': {
+            '名称': '5.名称',
+            '代码': '6.代码'
+        },
+        'detail_fields': {
+            '类别': '7.类型',
+            '人口': '8.人口',
+            '河流名称': '9.河流名称',
+            '河流代码': '10.河流代码'
+        }
+    },
+    'fubiao2_vs_yinhuan': {
+        'match_fields': {
+            '名称': '5.名称',
+            '编号': '6.编码'
+        },
+        'detail_fields': {
+            '类别': '9.类型',
+            '河流名称': '15.河流名称',
+            '河流代码': '16.河流代码'
+        }
+    },
+    'fubiao3_vs_yinhuan': {
+        'match_fields': {
+            '名称': '5.名称',
+            '编号': '6.编号'
+        },
+        'detail_fields': {
+            '类别': '9.类型',
+            '河流名称': '14.河流名称',
+            '河流代码': '15.河流代码'
+        }
+    }
+}
+
+
+class ValidationMappingConfig:
+    """空间数据校验字段映射配置管理器"""
+
+    def __init__(self, config_dir: str = None):
+        if config_dir is None:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_dir = os.path.dirname(current_dir)
+            config_dir = os.path.join(project_dir, "config")
+
+        self.config_dir = config_dir
+        self.config_file = os.path.join(config_dir, VALIDATION_MAPPING_CONFIG_FILE)
+        self._mapping = None
+        self._ensure_config_dir()
+
+    def _ensure_config_dir(self):
+        if not os.path.exists(self.config_dir):
+            os.makedirs(self.config_dir, exist_ok=True)
+
+    @property
+    def mapping(self) -> Dict[str, Any]:
+        if self._mapping is not None:
+            return self._mapping
+
+        if os.path.exists(self.config_file):
+            try:
+                with open(self.config_file, 'r', encoding='utf-8') as f:
+                    self._mapping = json.load(f)
+                    return self._mapping
+            except Exception:
+                pass
+
+        self._mapping = copy.deepcopy(DEFAULT_VALIDATION_FIELD_MAPPING)
+        return self._mapping
+
+    def save_mapping(self, mapping: Dict[str, Any]) -> bool:
+        try:
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                json.dump(mapping, f, ensure_ascii=False, indent=2)
+            self._mapping = mapping
+            return True
+        except Exception as e:
+            print(f"保存校验字段映射配置失败: {e}")
+            return False
+
+    def reset_to_default(self) -> bool:
+        self._mapping = copy.deepcopy(DEFAULT_VALIDATION_FIELD_MAPPING)
+        return self.save_mapping(self._mapping)
+
+
+_validation_mapping_instance = None
+
+
+def get_validation_mapping_config() -> ValidationMappingConfig:
+    global _validation_mapping_instance
+    if _validation_mapping_instance is None:
+        _validation_mapping_instance = ValidationMappingConfig()
+    return _validation_mapping_instance
+
+
+_shp_match_instance = None
+
+
+def get_shp_match_config() -> ShpMatchConfig:
+    global _shp_match_instance
+    if _shp_match_instance is None:
+        _shp_match_instance = ShpMatchConfig()
+    return _shp_match_instance
 
 
 # 全局配置实例

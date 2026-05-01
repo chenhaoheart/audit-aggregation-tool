@@ -57,8 +57,8 @@ class PhotoMatchReportDialog(QDialog):
             }}
         """)
         header_layout = QVBoxLayout(header_card)
-        header_layout.setSpacing(8)
-        header_layout.setContentsMargins(24, 20, 24, 16)
+        header_layout.setSpacing(14)
+        header_layout.setContentsMargins(24, 22, 24, 20)
 
         title_row = QHBoxLayout()
         title_row.setSpacing(12)
@@ -85,7 +85,7 @@ class PhotoMatchReportDialog(QDialog):
         header_layout.addLayout(title_row)
 
         badges_row = QHBoxLayout()
-        badges_row.setSpacing(12)
+        badges_row.setSpacing(24)
 
         f2_matched = summary.get('fubiao2_matched', 0)
         f2_total = summary.get('fubiao2_total', 0)
@@ -112,31 +112,32 @@ class PhotoMatchReportDialog(QDialog):
 
             badge.setStyleSheet(f"""
                 QFrame {{
-                    background: rgba(255,255,255,0.15);
-                    border: none;
+                    background: rgba(255,255,255,0.18);
+                    border: 1px solid rgba(255,255,255,0.25);
                     border-radius: 12px;
                 }}
             """)
-            badge.setFixedHeight(36)
+            badge.setFixedHeight(52)
+            badge.setMinimumWidth(200)
 
             bl = QHBoxLayout(badge)
-            bl.setContentsMargins(12, 6, 12, 6)
-            bl.setSpacing(8)
+            bl.setContentsMargins(24, 12, 20, 12)
+            bl.setSpacing(14)
 
             status_bar = QFrame()
             status_bar.setStyleSheet(f"""
                 QFrame {{
                     background: {indicator_color};
-                    border-radius: 2px;
+                    border-radius: 3px;
                 }}
             """)
-            status_bar.setFixedSize(3, 24)
+            status_bar.setFixedSize(4, 32)
             bl.addWidget(status_bar)
 
             lbl_text = QLabel(label)
             lbl_text.setStyleSheet("""
-                color: rgba(255,255,255,0.85);
-                font-size: 13px;
+                color: rgba(255,255,255,0.92);
+                font-size: 15px;
                 font-weight: 500;
             """)
             bl.addWidget(lbl_text)
@@ -146,27 +147,27 @@ class PhotoMatchReportDialog(QDialog):
                 stat_text = QLabel(f"{matched}/{total}")
                 stat_text.setStyleSheet(f"""
                     color: white;
-                    font-size: 14px;
+                    font-size: 18px;
                     font-weight: 700;
                 """)
                 bl.addWidget(stat_text)
 
                 pct_label = QLabel(f"{percentage}%")
                 pct_color = success_color if is_complete else (warning_color if is_warning else error_color)
-                pct_label.setStyleSheet(f"color: {pct_color}; font-size: 12px; font-weight: 600;")
+                pct_label.setStyleSheet(f"color: {pct_color}; font-size: 14px; font-weight: 600;")
                 bl.addWidget(pct_label)
             else:
                 stat_text = QLabel(str(matched))
                 stat_color = success_color if matched == 0 else warning_color
                 stat_text.setStyleSheet(f"""
                     color: {stat_color};
-                    font-size: 14px;
+                    font-size: 18px;
                     font-weight: 700;
                 """)
                 bl.addWidget(stat_text)
 
                 unit_label = QLabel("项")
-                unit_label.setStyleSheet("color: rgba(255,255,255,0.6); font-size: 12px;")
+                unit_label.setStyleSheet("color: rgba(255,255,255,0.75); font-size: 14px;")
                 bl.addWidget(unit_label)
 
             bl.addStretch()
@@ -186,18 +187,17 @@ class PhotoMatchReportDialog(QDialog):
         self.tab_widget = QTabWidget()
         self.tab_widget.setStyleSheet(f"""
             QTabWidget::pane {{
-                border: 1px solid {theme.get('card_border', '#e2e8f0')};
+                border: none;
                 border-radius: 8px;
                 background: {theme.get('card_bg', '#ffffff')};
                 top: -1px;
             }}
             QTabBar::tab {{
                 background: {theme.get('content_bg', '#f8fafc')};
-                border: 1px solid {theme.get('card_border', '#e2e8f0')};
-                border-bottom: none;
+                border: none;
                 border-top-left-radius: 8px;
                 border-top-right-radius: 8px;
-                padding: 8px 16px;
+                padding: 10px 18px;
                 margin-right: 2px;
                 font-size: 13px;
                 color: {theme.get('text_secondary', '#475569')};
@@ -308,7 +308,7 @@ class PhotoMatchReportDialog(QDialog):
             group_frame.setStyleSheet(f"""
                 QFrame {{
                     background: {theme.get('card_bg', '#ffffff')};
-                    border: 1px solid {theme.get('card_border', '#e2e8f0')};
+                    border: none;
                     border-radius: 12px;
                 }}
             """)
@@ -321,7 +321,7 @@ class PhotoMatchReportDialog(QDialog):
 
             group_layout = QVBoxLayout(group_frame)
             group_layout.setSpacing(12)
-            group_layout.setContentsMargins(18, 16, 18, 16)
+            group_layout.setContentsMargins(20, 18, 20, 18)
 
             title_row = QHBoxLayout()
             title_row.setSpacing(10)
@@ -352,8 +352,8 @@ class PhotoMatchReportDialog(QDialog):
                 card = QFrame()
                 card.setStyleSheet(f"""
                     QFrame {{
-                        background: {theme.get('content_bg', '#f8fafc')};
-                        border: 1px solid {theme.get('card_border', '#f1f5f9')};
+                        background: {theme.get('surface_1', '#f1f5f9')};
+                        border: none;
                         border-radius: 10px;
                     }}
                 """)
@@ -361,7 +361,7 @@ class PhotoMatchReportDialog(QDialog):
 
                 card_layout = QHBoxLayout(card)
                 card_layout.setSpacing(8)
-                card_layout.setContentsMargins(12, 8, 12, 8)
+                card_layout.setContentsMargins(16, 10, 16, 10)
 
                 color_indicator = QFrame()
                 color_indicator.setStyleSheet(f"""

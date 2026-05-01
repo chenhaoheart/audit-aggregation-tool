@@ -21,7 +21,7 @@ from services.report_generator import build_report_html
 from ui.components.dashboard_widgets import (
     StatNumberCard, StatMetricCard, HealthScoreGauge,
     CheckStatusPanel, CrossCheckTimeline,
-    CollapsibleCard, CollapsibleCardsContainer, CheckProgressPanel,
+    HorizontalSwipeCards, CheckProgressPanel,
     SpatialResultGrid, PhotoMatchDashboard, CrossCheckListPanel
 )
 from core.theme_manager import get_theme_manager
@@ -34,9 +34,11 @@ class DashboardPage(QWidget):
 
     信号:
         log_message: 日志消息信号
+        show_log_requested: 显示日志窗口信号
     """
 
     log_message = Signal(str)
+    show_log_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -181,7 +183,7 @@ class DashboardPage(QWidget):
         self.log_btn.setFixedWidth(50)
         self.log_btn.setCursor(Qt.PointingHandCursor)
         self.log_btn.setObjectName("logToggleBtn")
-        self.log_btn.clicked.connect(lambda: self.log_message.emit("[LOG] 日志窗口"))
+        self.log_btn.clicked.connect(lambda: self.show_log_requested.emit())
         row.addWidget(self.log_btn)
 
         layout.addLayout(row)
@@ -272,13 +274,17 @@ class DashboardPage(QWidget):
         container_layout = QVBoxLayout(container)
         container_layout.setSpacing(12)
         container_layout.setContentsMargins(0, 0, 0, 0)
-
+        header_widget = QWidget()
+        header_row = QHBoxLayout(header_widget)
+        header_row.setSpacing(12)
+        header_row.setContentsMargins(0, 0, 0, 0)
         section_header = QLabel("\U0001f4ca 结果详情")
         section_header.setObjectName("sectionHeaderSm")
-        container_layout.addWidget(section_header)
-
-        self.cards_container = CollapsibleCardsContainer()
-
+        header_row.addWidget(section_header)
+        header_row.addStretch()
+        self.swipe_cards = HorizontalSwipeCards()
+        header_row.addWidget(self.swipe_cards.dots_container)
+        container_layout.addWidget(header_widget)
         card_configs = [
             ("fubiao_card", "\ud83d\udccb", "附表1/2/3详情", "_setup_fubiao_content"),
             ("spatial_card", "\ud83d\uddfa\ufe0f", "空间数据详情", "_setup_spatial_content"),
@@ -286,18 +292,21 @@ class DashboardPage(QWidget):
             ("photo_card", "\ud83d\udcf7", "照片匹配详情", "_setup_photo_content"),
             ("cross_card", "\ud83d\udd17", "交叉校验详情", "_setup_cross_content"),
         ]
-
         self.result_cards = {}
-        for attr_name, icon, title, setup_method in card_configs:
-            card = CollapsibleCard(title, icon)
+        self._card_index_map = {}
+        for i, (attr_name, icon, title, setup_method) in enumerate(card_configs):
             content_widget = QWidget()
-            getattr(self, setup_method)(content_widget)
-            card.set_content_widget(content_widget)
-            self.cards_container.add_card(card)
-            self.result_cards[attr_name] = card
-            setattr(self, attr_name.replace('_card', '_content'), content_widget)
-
-        container_layout.addWidget(self.cards_container, 1)
+            content_layout = QVBoxLayout(content_widget)
+            content_layout.setContentsMargins(16, 16, 16, 16)
+            content_layout.setSpacing(8)
+            content_inner = QWidget()
+            getattr(self, setup_method)(content_inner)
+            content_layout.addWidget(content_inner, 1)
+            self.swipe_cards.add_card(title, icon, content_widget)
+            self.result_cards[attr_name] = i
+            self._card_index_map[attr_name] = i
+            setattr(self, attr_name.replace('_card', '_content'), content_inner)
+        container_layout.addWidget(self.swipe_cards, 1)
         return container
 
     def _setup_fubiao_content(self, widget):
@@ -357,8 +366,8 @@ class DashboardPage(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
         self.cross_list = CrossCheckListPanel()
-        self.cross_list.setMinimumHeight(400)
-        layout.addWidget(self.cross_list)
+        self.cross_list.setMinimumHeight(500)
+        layout.addWidget(self.cross_list, 1)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -392,15 +401,9 @@ class DashboardPage(QWidget):
         card_key = self._key_to_card_map.get(key)
         if not card_key or card_key not in self.result_cards:
             return
-        card = self.result_cards[card_key]
-        if card.is_expanded():
-            self._scroll_to_widget(card)
-        else:
-            def _on_expand_done():
-                card.expand_finished.disconnect(_on_expand_done)
-                self._scroll_to_widget(card)
-            card.expand_finished.connect(_on_expand_done)
-            card.expand()
+        index = self.result_cards[card_key]
+        self.swipe_cards.set_current_index(index)
+        self._scroll_to_widget(self.swipe_cards)
 
     def _scroll_to_widget(self, widget):
         target_y = widget.mapTo(self.scroll_content, QPoint(0, 0)).y()
@@ -507,7 +510,7 @@ class DashboardPage(QWidget):
             fb_status,
             f"{fb_err} \u4e2a\u95ee\u9898" if fb_err > 0 else "\u6821\u9a8c\u901a\u8fc7")
         if "fubiao_card" in self.result_cards:
-            self.result_cards["fubiao_card"].set_status(fb_status)
+            self.swipe_cards.set_card_status(self.result_cards["fubiao_card"], fb_status)
 
         sp_invalid = sum(1 for r in sp.get('results', []) if r.get('status') != '\u901a\u8fc7')
         sp_status = sp.get('status', 'pending')
@@ -515,7 +518,7 @@ class DashboardPage(QWidget):
             sp_status,
             f"{sp_invalid}/{len(sp.get('results', []))} \u56fe\u5c42\u5f02\u5e38" if sp_invalid > 0 else "\u6821\u9a8c\u901a\u8fc7")
         if "spatial_card" in self.result_cards:
-            self.result_cards["spatial_card"].set_status(sp_status)
+            self.swipe_cards.set_card_status(self.result_cards["spatial_card"], sp_status)
 
         sec_stats = sec.get('stats', {})
         sec_err = sec_stats.get('validation_error_count', 0)
@@ -524,7 +527,7 @@ class DashboardPage(QWidget):
         sec_status = sec.get('status', 'pending')
         self.category_cards["section"].update_status(sec_status, sec_detail)
         if "section_card" in self.result_cards:
-            self.result_cards["section_card"].set_status(sec_status)
+            self.swipe_cards.set_card_status(self.result_cards["section_card"], sec_status)
 
         ph_summary = ph.get('match_result', {}).get('summary', {})
         ph_unmatched = ph_summary.get('fubiao2_unmatched', 0) + ph_summary.get('fubiao3_unmatched', 0)
@@ -533,7 +536,7 @@ class DashboardPage(QWidget):
             ph_status,
             f"{ph_unmatched}\u9879\u672a\u5339\u914d" if ph_unmatched > 0 else "\u5168\u90e8\u5339\u914d")
         if "photo_card" in self.result_cards:
-            self.result_cards["photo_card"].set_status(ph_status)
+            self.swipe_cards.set_card_status(self.result_cards["photo_card"], ph_status)
 
         cr_err = len(cr.get('errors', []))
         cr_warn = len(cr.get('warnings', []))
@@ -541,7 +544,7 @@ class DashboardPage(QWidget):
         cr_status = cr.get('status', 'pending')
         self.category_cards["cross"].update_status(cr_status, cr_detail)
         if "cross_card" in self.result_cards:
-            self.result_cards["cross_card"].set_status(cr_status)
+            self.swipe_cards.set_card_status(self.result_cards["cross_card"], cr_status)
 
         cross_items = cr.get('items', [])
         if cross_items:
@@ -552,9 +555,9 @@ class DashboardPage(QWidget):
         errors = data.get('fubiao_check', {}).get('errors', [])
         self.fubiao_table.setRowCount(len(errors))
         for row, err in enumerate(errors):
+            self.fubiao_table.setItem(row, 0, QTableWidgetItem(str(row + 1)))
             for col, key in enumerate(['表名', '字段名', '错误类型', '错误描述', '当前值']):
-                self.fubiao_table.setItem(row, col + 1, QTableWidgetItem(str(err.get(key, '')))
-                                        if col > 0 else QTableWidgetItem(str(row + 1)))
+                self.fubiao_table.setItem(row, col + 1, QTableWidgetItem(str(err.get(key, ''))))
 
     def _update_spatial(self, data):
         results = data.get('spatial_check', {}).get('results', [])
@@ -610,9 +613,9 @@ class DashboardPage(QWidget):
     def _reset_status(self):
         for card in self.category_cards.values():
             card.update_status('pending')
-        for card in self.result_cards.values():
-            card.set_status('pending')
-            card.collapse()
+        for card_key, index in self.result_cards.items():
+            self.swipe_cards.set_card_status(index, 'pending')
+        self.swipe_cards.set_current_index(0)
         self.cross_timeline.setVisible(False)
 
         self.stat_cards["errors"].set_value("--", "", None)

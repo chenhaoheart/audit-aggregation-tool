@@ -10,8 +10,28 @@ import json
 import re
 from typing import Dict, Optional, List
 from PySide6.QtCore import QObject, Signal, Slot, QPropertyAnimation, QEasingCurve, Property
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QColor
 from PySide6.QtWidgets import QWidget
+
+
+def parse_theme_color(color_str: str, fallback: str = '#e5e7eb') -> QColor:
+    if not color_str:
+        return QColor(fallback)
+    c = QColor(color_str)
+    if c.isValid():
+        return c
+    if 'rgba(' in color_str or 'rgb(' in color_str:
+        try:
+            inner = color_str.replace('rgba(', '').replace('rgb(', '').replace(')', '').strip()
+            parts = [float(x.strip()) for x in inner.split(',')]
+            r, g, b = int(parts[0]), int(parts[1]), int(parts[2])
+            a = int(float(parts[3]) * 255) if len(parts) > 3 else 255
+            c = QColor(r, g, b, a)
+            if c.isValid():
+                return c
+        except Exception:
+            pass
+    return QColor(fallback)
 
 
 THEME_CONFIG_FILE = "theme.json"

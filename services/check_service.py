@@ -3,8 +3,82 @@
 数据检查业务服务
 """
 
+import os
 from PySide6.QtCore import QObject, QThread, Signal, Slot
 from core.checker import WaterSystemChecker
+from core.config_manager import get_shp_match_config
+
+
+LAYER_TYPES = [
+    {'key': 'water', 'name': '水系', 'required': False},
+    {'key': 'duanmian', 'name': '断面平面位置', 'required': False},
+    {'key': 'fangzhi', 'name': '防治对象分布', 'required': False},
+    {'key': 'yinhuan', 'name': '隐患要素分布', 'required': False},
+    {'key': 'liuyu', 'name': '流域', 'required': False},
+]
+
+
+def scan_shp_files(root_path: str) -> dict:
+    """
+    扫描目录下的SHP文件，自动匹配到各图层类型
+
+    Args:
+        root_path: 根目录路径
+
+    Returns:
+        dict: {
+            'layers': {
+                'water': {'name': '水系', 'path': '/path/to/file.shp', 'matched': True},
+                'duanmian': {'name': '断面平面位置', 'path': '', 'matched': False},
+                ...
+            },
+            'spatial_folder': '/path/to/spatial/data/folder' or None,
+            'all_shp_files': ['/path/to/file1.shp', ...]
+        }
+    """
+    shp_cfg = get_shp_match_config()
+    layer_keywords = shp_cfg.layer_keywords
+    water_keywords = shp_cfg.water_system_keywords
+
+    layers = {}
+    for lt in LAYER_TYPES:
+        layers[lt['key']] = {
+            'name': lt['name'],
+            'path': '',
+            'matched': False,
+            'required': lt['required']
+        }
+
+    all_shp_files = []
+    spatial_folder = None
+
+    if not root_path or not os.path.exists(root_path):
+        return {'layers': layers, 'spatial_folder': None, 'all_shp_files': []}
+
+    for root, dirs, files in os.walk(root_path):
+        for f in files:
+            if f.endswith('.shp'):
+                full_path = os.path.join(root, f)
+                all_shp_files.append(full_path)
+
+                if shp_cfg.match_water_system(f) and not layers['water']['matched']:
+                    layers['water']['path'] = full_path
+                    layers['water']['matched'] = True
+
+                if shp_cfg.match_spatial_data_file(f) and spatial_folder is None:
+                    spatial_folder = root
+
+                for layer_key, keyword in layer_keywords.items():
+                    if layer_key in layers and not layers[layer_key]['matched']:
+                        if keyword in f:
+                            layers[layer_key]['path'] = full_path
+                            layers[layer_key]['matched'] = True
+
+    return {
+        'layers': layers,
+        'spatial_folder': spatial_folder,
+        'all_shp_files': all_shp_files
+    }
 
 
 class CheckThread(QThread):
@@ -13,7 +87,7 @@ class CheckThread(QThread):
     finished_signal = Signal(dict)
     error_signal = Signal(str)
 
-    def __init__(self, folder_path, water_system_shp, parent=None):
+    def __init__(self, folder_path, water_system_shp=None, parent=None):
         super().__init__(parent)
         self.folder_path = folder_path
         self.water_system_shp = water_system_shp
@@ -33,7 +107,8 @@ class CheckThread(QThread):
                 'water_codes': checker.water_codes,
                 'water_names': checker.water_names,
                 'water_code_to_name': checker.water_code_to_name,
-                'water_original_columns': checker.water_original_columns
+                'water_original_columns': checker.water_original_columns,
+                'has_water_system': checker.has_water_system
             })
         except Exception as e:
             self.error_signal.emit(str(e))
@@ -44,13 +119,13 @@ class CheckService(QObject):
     progress = Signal(str)
     finished = Signal(dict)
     error = Signal(str)
-    state_changed = Signal(str)  # idle, running, finished, error
+    state_changed = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._thread = None
         self._folder_path = ""
-        self._water_system_shp = ""
+        self._water_system_shp = None
         self._results = None
         self._state = "idle"
 
@@ -66,7 +141,7 @@ class CheckService(QObject):
     def is_running(self) -> bool:
         return self._state == "running"
 
-    def start_check(self, folder_path: str, water_system_shp: str) -> bool:
+    def start_check(self, folder_path: str, water_system_shp: str = None) -> bool:
         if self.is_running:
             return False
 
@@ -105,21 +180,22 @@ class CheckService(QObject):
         self._state = "finished"
         self.state_changed.emit(self._state)
 
-        # 分离数据
         results = data['results']
         all_records = data['all_records']
         water_records = data['water_records']
 
-        duanmian = [r for r in all_records if '断面平面位置' in r.get('源文件', '')]
-        fangzhi = [r for r in all_records if '防治对象分布' in r.get('源文件', '')]
-        yinhuan = [r for r in all_records if '隐患要素分布' in r.get('源文件', '')]
+        shp_cfg = get_shp_match_config()
+        duanmian = [r for r in all_records if shp_cfg.get_layer_keyword('duanmian') in r.get('源文件', '')]
+        fangzhi = [r for r in all_records if shp_cfg.get_layer_keyword('fangzhi') in r.get('源文件', '')]
+        yinhuan = [r for r in all_records if shp_cfg.get_layer_keyword('yinhuan') in r.get('源文件', '')]
 
         self.finished.emit({
             'results': results,
             'duanmian': duanmian,
             'fangzhi': fangzhi,
             'yinhuan': yinhuan,
-            'water': water_records
+            'water': water_records,
+            'has_water_system': data.get('has_water_system', True)
         })
 
     @Slot(str)

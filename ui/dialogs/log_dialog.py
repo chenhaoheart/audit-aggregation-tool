@@ -55,8 +55,11 @@ class LogDialog(QDialog):
         self.log_text.clear()
 
     def closeEvent(self, event):
-        self.hide()
-        event.ignore()
+        if hasattr(self, '_entrance_anim') and self._entrance_anim:
+            self._entrance_anim.stop()
+            self._entrance_anim = None
+        self.setGraphicsEffect(None)
+        event.accept()
 
     def showEvent(self, event):
         """对话框显示事件——首次显示时播放入场动画"""

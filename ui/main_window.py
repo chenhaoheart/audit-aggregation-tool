@@ -175,6 +175,7 @@ class MainWindow(QWidget):
         # --- 页面0：Dashboard汇总检查 ---
         self.dashboard_page = DashboardPage()
         self.dashboard_page.log_message.connect(self._on_log_message)
+        self.dashboard_page.show_log_requested.connect(self._toggle_log_dialog)
         self.page_stack.addWidget(self.dashboard_page)
 
         # --- 页面1：空间数据检查（使用CheckPage组件） ---

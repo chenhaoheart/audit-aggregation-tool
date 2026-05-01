@@ -91,4 +91,18 @@ QTableWidget::item:selected {{
     background: {theme['table_selection_bg']};
     border-left: 3px solid {theme['accent_color']};
 }}
+
+/* ========== 图层匹配清单表格 ========== */
+QTableWidget#layerTable {{
+    border: 1px solid {theme['card_border']};
+    border-radius: 10px;
+    background: {theme['table_bg']};
+    gridline-color: {theme['table_grid']};
+    font-size: 12px;
+}}
+
+QTableWidget#layerTable QHeaderView::section {{
+    padding: 8px 10px;
+    font-size: 12px;
+}}
 """

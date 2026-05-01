@@ -10,6 +10,7 @@ import pandas as pd
 from typing import Dict, List, Tuple, Optional
 from openpyxl import load_workbook
 from difflib import SequenceMatcher
+from core.config_manager import get_shp_match_config, DEFAULT_VALIDATION_FIELD_MAPPING
 
 
 def fuzzy_match(s1: str, s2: str) -> float:
@@ -24,44 +25,7 @@ def fuzzy_match(s1: str, s2: str) -> float:
 class DataValidator:
     """附表与空间数据对比校验器"""
 
-    # 默认字段映射配置 - 新格式：{shp字段: 附表字段}
-    DEFAULT_FIELD_MAPPING = {
-        'fubiao1_vs_fangzhi': {
-            # shp字段 -> 附表字段
-            'match_fields': {
-                '名称': '5.名称',
-                '代码': '6.代码'
-            },
-            'detail_fields': {
-                '类型': '7.类型',
-                '人口': '8.人口',
-                '河流名称': '9.河流名称',
-                '河流代码': '10.河流代码'
-            }
-        },
-        'fubiao2_vs_yinhuan': {
-            'match_fields': {
-                '名称': '名称',
-                '编号': '编码'
-            },
-            'detail_fields': {
-                '类型': '类型',
-                '河流名称': '河流名称',
-                '河流代码': '河流代码'
-            }
-        },
-        'fubiao3_vs_yinhuan': {
-            'match_fields': {
-                '名称': '名称',
-                '编号': '编码'
-            },
-            'detail_fields': {
-                '类型': '类型',
-                '河流名称': '河流名称',
-                '河流代码': '河流代码'
-            }
-        }
-    }
+    DEFAULT_FIELD_MAPPING = DEFAULT_VALIDATION_FIELD_MAPPING
 
     def __init__(self):
         self.fubiao_data = {}  # 附表数据
@@ -237,42 +201,118 @@ class DataValidator:
 
         self.emit_progress(f"发现 {len(subfolders)} 个子文件夹")
 
-        for subfolder in subfolders:
-            subfolder_name = os.path.basename(subfolder)
+        if not subfolders:
+            self.emit_progress("   ℹ️ 无子文件夹，将直接扫描当前文件夹中的shp文件")
 
-            # 查找防治对象分布P.shp
-            for root, dirs, files in os.walk(subfolder):
+        shp_cfg = get_shp_match_config()
+        fangzhi_filename = shp_cfg.get_layer_keyword('fangzhi') + 'P.shp'
+        yinhuan_base = shp_cfg.get_layer_keyword('yinhuan')
+        yinhuan_filenames = [yinhuan_base + 'L.shp', yinhuan_base + 'P.shp']
+
+        def _load_shp_from_dir(scan_dir, label):
+            """扫描目录并加载shp文件"""
+            found_files = []
+            for root, dirs, files in os.walk(scan_dir):
+                found_files.extend(files)
                 for file in files:
-                    if file == '防治对象分布P.shp':
+                    if file == fangzhi_filename:
                         shp_path = os.path.join(root, file)
-                        self.emit_progress(f"加载: {subfolder_name}/{file}")
+                        self.emit_progress(f"   ✅ 找到: {label}/{file}")
                         gdf = self._read_shp_with_encoding(shp_path)
                         if gdf is not None:
                             for idx, row in gdf.iterrows():
                                 record = row.to_dict()
-                                record['_source_folder'] = subfolder_name
+                                record['_source_folder'] = label
                                 record['_source_file'] = shp_path
                                 self.shp_data['fangzhi'].append(record)
-                            self.emit_progress(f"  记录数: {len(gdf)}")
+                            self.emit_progress(f"      ✓ 读取成功: {len(gdf)} 条记录")
                         else:
-                            self.emit_progress(f"  读取失败")
+                            self.emit_progress(f"      ❌ 读取失败: 文件可能损坏或编码不支持")
 
-                    elif file == '隐患要素分布L.shp':
+                    elif file in yinhuan_filenames:
                         shp_path = os.path.join(root, file)
-                        self.emit_progress(f"加载: {subfolder_name}/{file}")
+                        self.emit_progress(f"   ✅ 找到: {label}/{file}")
                         gdf = self._read_shp_with_encoding(shp_path)
                         if gdf is not None:
                             for idx, row in gdf.iterrows():
                                 record = row.to_dict()
-                                record['_source_folder'] = subfolder_name
+                                record['_source_folder'] = label
                                 record['_source_file'] = shp_path
                                 self.shp_data['yinhuan'].append(record)
-                            self.emit_progress(f"  记录数: {len(gdf)}")
+                            self.emit_progress(f"      ✓ 读取成功: {len(gdf)} 条记录")
                         else:
-                            self.emit_progress(f"  读取失败")
+                            self.emit_progress(f"      ❌ 读取失败: 文件可能损坏或编码不支持")
+
+            if not any(f.endswith('.shp') for f in found_files):
+                self.emit_progress(f"   ⚠️ 该文件夹未找到任何 .shp 文件")
+            elif fangzhi_filename not in found_files and not any(yf in found_files for yf in yinhuan_filenames):
+                self.emit_progress(f"   ⚠️ 未找到目标文件 (有{len(found_files)}个文件，但名称不匹配)")
+                shp_files = [f for f in found_files if f.endswith('.shp')]
+                if shp_files:
+                    self.emit_progress(f"   📋 现有的shp文件: {', '.join(shp_files[:5])}")
+
+        if subfolders:
+            for subfolder in subfolders:
+                subfolder_name = os.path.basename(subfolder)
+                self.emit_progress(f"\n📁 正在扫描: {subfolder_name}")
+                self.emit_progress(f"   查找文件: {fangzhi_filename} / {', '.join(yinhuan_filenames)}")
+                _load_shp_from_dir(subfolder, subfolder_name)
+        else:
+            _load_shp_from_dir(folder_path, os.path.basename(folder_path) or '当前文件夹')
 
         self.emit_progress(f"防治对象分布P.shp 总记录数: {len(self.shp_data['fangzhi'])}")
-        self.emit_progress(f"隐患要素分布L.shp 总记录数: {len(self.shp_data['yinhuan'])}")
+        self.emit_progress(f"隐患要素分布 总记录数: {len(self.shp_data['yinhuan'])}")
+
+        return True
+
+    def load_shp_files(self, fangzhi_path: str = None, yinhuan_path: str = None) -> bool:
+        """
+        按指定路径加载SHP文件（支持选择性加载）
+
+        Args:
+            fangzhi_path: 防治对象分布SHP路径，为None则跳过
+            yinhuan_path: 隐患要素分布SHP路径，为None则跳过
+
+        Returns:
+            是否成功加载
+        """
+        self.shp_data = {
+            'fangzhi': [],
+            'yinhuan': []
+        }
+
+        if fangzhi_path and os.path.exists(fangzhi_path):
+            self.emit_progress(f"   ✅ 加载防治对象分布: {os.path.basename(fangzhi_path)}")
+            gdf = self._read_shp_with_encoding(fangzhi_path)
+            if gdf is not None:
+                for idx, row in gdf.iterrows():
+                    record = row.to_dict()
+                    record['_source_folder'] = '手动选择'
+                    record['_source_file'] = fangzhi_path
+                    self.shp_data['fangzhi'].append(record)
+                self.emit_progress(f"      ✓ 读取成功: {len(gdf)} 条记录")
+            else:
+                self.emit_progress(f"      ❌ 读取失败: 文件可能损坏或编码不支持")
+        elif fangzhi_path:
+            self.emit_progress(f"   ⚠️ 防治对象分布文件不存在: {fangzhi_path}")
+
+        if yinhuan_path and os.path.exists(yinhuan_path):
+            self.emit_progress(f"   ✅ 加载隐患要素分布: {os.path.basename(yinhuan_path)}")
+            gdf = self._read_shp_with_encoding(yinhuan_path)
+            if gdf is not None:
+                for idx, row in gdf.iterrows():
+                    record = row.to_dict()
+                    record['_source_folder'] = '手动选择'
+                    record['_source_file'] = yinhuan_path
+                    self.shp_data['yinhuan'].append(record)
+                self.emit_progress(f"      ✓ 读取成功: {len(gdf)} 条记录")
+            else:
+                self.emit_progress(f"      ❌ 读取失败: 文件可能损坏或编码不支持")
+        elif yinhuan_path:
+            self.emit_progress(f"   ⚠️ 隐患要素分布文件不存在: {yinhuan_path}")
+
+        self.emit_progress(f"防治对象分布 总记录数: {len(self.shp_data['fangzhi'])}")
+        self.emit_progress(f"隐患要素分布 总记录数: {len(self.shp_data['yinhuan'])}")
 
         return True
 
@@ -297,8 +337,12 @@ class DataValidator:
         self.emit_progress("开始附表1与防治对象分布P.shp对比...")
 
         # 获取映射配置 - 新格式：{shp字段: 附表字段}
-        mapping = self.field_mapping.get('fubiao1_vs_fangzhi', {})
-        match_fields = mapping.get('match_fields', {'名称': '5.名称', '代码': '6.代码'})
+        mapping = self.field_mapping.get('fubiao1_vs_fangzhi', self.DEFAULT_FIELD_MAPPING.get('fubiao1_vs_fangzhi', {}))
+        match_fields = mapping.get('match_fields')
+
+        if not match_fields:
+            self.emit_progress("错误: 未找到附表1的字段映射配置")
+            return result
 
         # 获取匹配字段 - keys是shp字段，values是附表字段
         shp_match_fields = list(match_fields.keys())
@@ -384,12 +428,16 @@ class DataValidator:
         self.emit_progress("开始附表2/3与隐患要素分布L.shp对比...")
 
         # 获取附表2映射配置
-        mapping2 = self.field_mapping.get('fubiao2_vs_yinhuan', {})
-        match_fields2 = mapping2.get('match_fields', {'名称': '名称', '编号': '编码'})
+        mapping2 = self.field_mapping.get('fubiao2_vs_yinhuan', self.DEFAULT_FIELD_MAPPING.get('fubiao2_vs_yinhuan', {}))
+        match_fields2 = mapping2.get('match_fields')
 
         # 获取附表3映射配置
-        mapping3 = self.field_mapping.get('fubiao3_vs_yinhuan', {})
-        match_fields3 = mapping3.get('match_fields', {'名称': '名称', '编号': '编码'})
+        mapping3 = self.field_mapping.get('fubiao3_vs_yinhuan', self.DEFAULT_FIELD_MAPPING.get('fubiao3_vs_yinhuan', {}))
+        match_fields3 = mapping3.get('match_fields')
+
+        if not match_fields2:
+            self.emit_progress("错误: 未找到附表2的字段映射配置")
+            return result
 
         # 构建shp索引
         shp_index = {}

@@ -10,16 +10,15 @@ import math
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QScrollArea,
     QSizePolicy, QGraphicsDropShadowEffect, QPushButton, QProgressBar,
-    QGridLayout
+    QGridLayout, QStackedWidget
 )
-from PySide6.QtCore import Qt, Signal, QRectF, QTimer, QPropertyAnimation, QEasingCurve, QPointF, QSize, Property
+from PySide6.QtCore import Qt, Signal, QRectF, QTimer, QPropertyAnimation, QEasingCurve, QPointF, QPoint, QSize, Property
 from PySide6.QtGui import (
     QColor, QPainter, QPainterPath, QPen, QBrush, QFont,
     QConicalGradient, QLinearGradient, QPolygonF, QRadialGradient
 )
 
-from core.theme_manager import get_theme_manager
-from core.effects_manager import ShadowHelper
+from core.theme_manager import get_theme_manager, parse_theme_color
 
 
 STATUS_BADGE_MAP = {
@@ -293,6 +292,212 @@ class CollapsibleCardsContainer(QWidget):
         return self._cards
 
 
+class DotIndicator(QWidget):
+    clicked = Signal(int)
+
+    def __init__(self, index: int, parent=None):
+        super().__init__(parent)
+        self._index = index
+        self._is_active = False
+        self.setFixedSize(12, 12)
+        self.setCursor(Qt.PointingHandCursor)
+
+    def set_active(self, active: bool):
+        self._is_active = active
+        self.update()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit(self._index)
+        super().mousePressEvent(event)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        theme = get_theme_manager().get_current_theme()
+
+        cx, cy = self.width() / 2, self.height() / 2
+
+        if self._is_active:
+            color = QColor(theme.get('accent_color', '#3b82f6'))
+
+            line_width = 16
+            line_height = 3
+            x = cx - line_width / 2
+            y = cy + 4
+
+            painter.setBrush(color)
+            painter.setPen(Qt.NoPen)
+            painter.drawRoundedRect(int(x), int(y), int(line_width), int(line_height), 1.5, 1.5)
+
+            glow_color = QColor(color)
+            glow_color.setAlpha(60)
+            painter.setBrush(glow_color)
+            painter.drawRoundedRect(int(x - 2), int(y - 1), int(line_width + 4), int(line_height + 2), 2.5, 2.5)
+        else:
+            radius = 3
+            bg_color = QColor(theme.get('text_muted', '#94a3b8'))
+            bg_color.setAlpha(120)
+            painter.setBrush(bg_color)
+            painter.setPen(Qt.NoPen)
+            painter.drawEllipse(QPointF(cx, cy - 1), radius, radius)
+
+        painter.end()
+
+
+class HorizontalSwipeCards(QWidget):
+    current_changed = Signal(int)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._cards = []
+        self._current_index = -1
+        self._dots = []
+        self._slide_anim = None
+        self.setObjectName("horizontalSwipeCards")
+        self._setup_ui()
+
+    def _setup_ui(self):
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        self.dots_container = QWidget()
+        self.dots_layout = QHBoxLayout(self.dots_container)
+        self.dots_layout.setSpacing(8)
+        self.dots_layout.setContentsMargins(0, 8, 0, 8)
+        content_container = QFrame()
+        content_container.setObjectName("swipeContentContainer")
+        content_layout = QHBoxLayout(content_container)
+        content_layout.setSpacing(0)
+        content_layout.setContentsMargins(40, 12, 40, 12)
+        self.content_stack = QStackedWidget()
+        self.content_stack.setObjectName("swipeContentStack")
+        content_layout.addWidget(self.content_stack, 1)
+
+        self.prev_btn = QPushButton("\u25c0")
+        self.prev_btn.setObjectName("swipeNavBtn")
+        self.prev_btn.setFixedSize(36, 36)
+        self.prev_btn.setCursor(Qt.PointingHandCursor)
+        self.prev_btn.clicked.connect(self.prev_card)
+        self.prev_btn.setParent(content_container)
+        self.prev_btn.raise_()
+
+        self.next_btn = QPushButton("\u25b6")
+        self.next_btn.setObjectName("swipeNavBtn")
+        self.next_btn.setFixedSize(36, 36)
+        self.next_btn.setCursor(Qt.PointingHandCursor)
+        self.next_btn.clicked.connect(self.next_card)
+        self.next_btn.setParent(content_container)
+        self.next_btn.raise_()
+
+        main_layout.addWidget(content_container, 1)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._position_nav_buttons()
+
+    def _position_nav_buttons(self):
+        parent = self.prev_btn.parentWidget()
+        if not parent:
+            return
+        btn_y = parent.height() // 2 - 18
+        self.prev_btn.move(6, btn_y)
+        self.next_btn.move(parent.width() - 42, btn_y)
+
+    def add_card(self, title: str, icon: str, content_widget: QWidget = None):
+        index = len(self._cards)
+        card_info = {
+            'title': title,
+            'icon': icon,
+            'status': 'pending',
+            'content': content_widget,
+        }
+        self._cards.append(card_info)
+
+        dot = DotIndicator(index)
+        dot.clicked.connect(self.set_current_index)
+        self._dots.append(dot)
+        self.dots_layout.addWidget(dot)
+
+        if content_widget:
+            content_widget.setObjectName("swipeCardContent")
+            self.content_stack.addWidget(content_widget)
+
+        if self._current_index < 0:
+            self._current_index = 0
+            dot.set_active(True)
+            self.content_stack.setCurrentIndex(0)
+
+        self._update_nav_buttons()
+
+    def set_card_status(self, index: int, status: str):
+        if 0 <= index < len(self._cards):
+            self._cards[index]['status'] = status
+
+    def set_current_index(self, index: int):
+        if index < 0 or index >= len(self._cards) or index == self._current_index:
+            return
+
+        old_index = self._current_index
+        self._current_index = index
+
+        for i, dot in enumerate(self._dots):
+            dot.set_active(i == index)
+
+        direction = 1 if index > old_index else -1
+        self._animate_slide(old_index, index, direction)
+
+        self._update_nav_buttons()
+        self.current_changed.emit(index)
+
+    def _animate_slide(self, old_index: int, new_index: int, direction: int):
+        old_widget = self.content_stack.widget(old_index)
+        new_widget = self.content_stack.widget(new_index)
+        if not old_widget or not new_widget:
+            self.content_stack.setCurrentIndex(new_index)
+            return
+
+        self.content_stack.setCurrentIndex(new_index)
+
+        width = self.content_stack.width()
+        if width <= 0:
+            return
+
+        new_widget.move(direction * width, 0)
+        new_widget.show()
+
+        if self._slide_anim:
+            self._slide_anim.stop()
+
+        self._slide_anim = QPropertyAnimation(new_widget, b"pos")
+        self._slide_anim.setDuration(300)
+        self._slide_anim.setStartValue(QPoint(direction * width, 0))
+        self._slide_anim.setEndValue(QPoint(0, 0))
+        self._slide_anim.setEasingCurve(QEasingCurve.OutCubic)
+        self._slide_anim.start()
+
+    def _update_nav_buttons(self):
+        pass
+
+    def prev_card(self):
+        if len(self._cards) == 0:
+            return
+        new_index = (self._current_index - 1) % len(self._cards)
+        self.set_current_index(new_index)
+
+    def next_card(self):
+        if len(self._cards) == 0:
+            return
+        new_index = (self._current_index + 1) % len(self._cards)
+        self.set_current_index(new_index)
+
+    def current_index(self):
+        return self._current_index
+
+    def get_card_count(self):
+        return len(self._cards)
+
+
 class StatusRingWidget(QWidget):
     def __init__(self, size=60, parent=None):
         super().__init__(parent)
@@ -357,17 +562,7 @@ class StatusRingWidget(QWidget):
         ring_width = 7
         ring_color = self._get_ring_color()
 
-        bg_color_str = theme.get('border_subtle', '#e5e7eb')
-        bg_color = QColor(bg_color_str)
-        if 'rgba' in bg_color_str:
-            try:
-                parts = bg_color_str.replace('rgba(', '').replace(')', '').split(',')
-                bg_color = QColor(int(parts[0]), int(parts[1]), int(parts[2]), int(float(parts[3]) * 255))
-            except:
-                bg_color = QColor('#e5e7eb')
-        if not bg_color.isValid():
-            bg_color = QColor('#e5e7eb')
-
+        bg_color = parse_theme_color(theme.get('border_subtle', '#e5e7eb'))
         bg_pen = QPen(bg_color, ring_width)
         bg_pen.setCapStyle(Qt.RoundCap)
         painter.setPen(bg_pen)
@@ -449,10 +644,8 @@ class StatNumberCard(QWidget):
         painter.setRenderHint(QPainter.Antialiasing)
         theme = get_theme_manager().get_current_theme()
 
-        card_bg = QColor(theme.get('card_bg', '#ffffff'))
-        border_color = QColor(theme.get('card_border', '#e5e7eb').replace('rgba(', '').split(',')[0] if 'rgba' in theme.get('card_border', '') else theme.get('card_border', '#e5e7eb'))
-        if not border_color.isValid():
-            border_color = QColor('#e5e7eb')
+        card_bg = parse_theme_color(theme.get('card_bg', '#ffffff'))
+        border_color = parse_theme_color(theme.get('card_border', '#e5e7eb'))
 
         path = QPainterPath()
         r = 14
@@ -461,10 +654,7 @@ class StatNumberCard(QWidget):
         painter.setPen(QPen(border_color, 1))
         painter.drawPath(path)
 
-        value_color = QColor(theme.get(self._color_key, '#1e293b'))
-        if not value_color.isValid():
-            value_color = QColor('#1e293b')
-
+        value_color = parse_theme_color(theme.get(self._color_key, '#1e293b'))
         font_value = QFont("SF Pro Display", 28, QFont.Bold)
         painter.setFont(font_value)
         painter.setPen(value_color)
@@ -472,18 +662,14 @@ class StatNumberCard(QWidget):
 
         font_label = QFont("Microsoft YaHei UI", 11)
         painter.setFont(font_label)
-        label_color = QColor(theme.get('text_secondary', '#64748b'))
-        if not label_color.isValid():
-            label_color = QColor('#64748b')
+        label_color = parse_theme_color(theme.get('text_secondary', '#64748b'))
         painter.setPen(label_color)
         painter.drawText(18, 66, self._label)
 
         if self._sub_text:
             font_sub = QFont("Microsoft YaHei UI", 9)
             painter.setFont(font_sub)
-            sub_color = QColor(theme.get('text_muted', '#94a3b8'))
-            if not sub_color.isValid():
-                sub_color = QColor('#94a3b8')
+            sub_color = parse_theme_color(theme.get('text_muted', '#94a3b8'))
             painter.setPen(sub_color)
             painter.drawText(18, 82, self._sub_text)
 
@@ -506,6 +692,7 @@ class HealthScoreGauge(QWidget):
     def set_score(self, score: int):
         self._score = min(100, max(0, score))
         self._show_glow = True
+        self._glow_timer.stop()
         self._glow_timer.start(40)
 
         if self._anim:
@@ -553,13 +740,7 @@ class HealthScoreGauge(QWidget):
         inner_r = outer_r - 12
         ring_width = 12
 
-        bg_color = QColor(theme.get('border_subtle', '#e5e7eb'))
-        if 'rgba' in theme.get('border_subtle', '#e5e7eb'):
-            bg_str = theme.get('border_subtle', '#e5e7eb')
-            bg_color = QColor(bg_str.replace('rgba(', '').split(',')[0].strip() if 'rgba' in bg_str else bg_str)
-        if not bg_color.isValid():
-            bg_color = QColor('#e5e7eb')
-
+        bg_color = parse_theme_color(theme.get('border_subtle', '#e5e7eb'))
         bg_pen = QPen(bg_color, ring_width)
         bg_pen.setCapStyle(Qt.RoundCap)
         painter.setPen(bg_pen)
@@ -625,20 +806,14 @@ class StatMetricCard(QFrame):
 
         self.value_label = QLabel("--")
         self.value_label.setObjectName("statMetricValue")
-        font_value = QFont("SF Pro Display", 24, QFont.Bold)
-        self.value_label.setFont(font_value)
         layout.addWidget(self.value_label)
 
         self.label_label = QLabel(self._label)
         self.label_label.setObjectName("statMetricLabel")
-        font_label = QFont("Microsoft YaHei UI", 13)
-        self.label_label.setFont(font_label)
         layout.addWidget(self.label_label)
 
         self.sub_label = QLabel("")
         self.sub_label.setObjectName("statMetricSub")
-        font_sub = QFont("Microsoft YaHei UI", 11)
-        self.sub_label.setFont(font_sub)
         self.sub_label.setVisible(False)
         layout.addWidget(self.sub_label)
 
@@ -658,7 +833,8 @@ class StatMetricCard(QFrame):
 
         if status_color_key:
             color = theme.get(status_color_key, theme.get('text_primary', '#1e293b'))
-            self.value_label.setStyleSheet(f"QLabel#statMetricValue {{ color: {color}; }}")
+            self.value_label.setStyleSheet(f"color: {color};")
+            self.sub_label.setStyleSheet(f"color: {color};")
 
         if sub_text:
             self.sub_label.setText(sub_text)
@@ -666,7 +842,7 @@ class StatMetricCard(QFrame):
 
         if status_color_key:
             bar_color = theme.get(status_color_key, '#22c55e')
-            self.status_bar.setStyleSheet(f"QFrame#statStatusBar {{ background: {bar_color}; border-radius: 2px; }}")
+            self.status_bar.setStyleSheet(f"background: {bar_color};")
             self.status_bar.setVisible(True)
 
 
@@ -745,8 +921,6 @@ class CheckStatusPanel(QFrame):
         self.setMinimumWidth(160)
         self.setCursor(Qt.PointingHandCursor)
         self._setup_ui()
-
-        ShadowHelper.add_card_shadow(self)
 
     def _setup_ui(self):
         layout = QHBoxLayout(self)
@@ -832,7 +1006,8 @@ class HorizontalBarChart(QWidget):
             painter.fillPath(path, color)
 
             if w > 30:
-                painter.setPen(QColor("#ffffff"))
+                text_color = QColor(theme.get('text_primary', '#ffffff'))
+                painter.setPen(text_color.lighter(250))
                 font = QFont("Arial", 8, QFont.Bold)
                 painter.setFont(font)
                 painter.drawText(rect, Qt.AlignCenter, str(value))
@@ -854,12 +1029,12 @@ class MiniDonutWidget(QWidget):
         self._pass_count = pass_count
         self._total = total
         self._pass_rate = pass_count / max(total, 1)
-        anim = QPropertyAnimation(self, b"_animated")
-        anim.setDuration(800)
-        anim.setStartValue(self._animated)
-        anim.setEndValue(self._pass_rate)
-        anim.setEasingCurve(QEasingCurve.OutCubic)
-        anim.start()
+        self._anim = QPropertyAnimation(self, b"animated")
+        self._anim.setDuration(800)
+        self._anim.setStartValue(self._animated)
+        self._anim.setEndValue(self._pass_rate)
+        self._anim.setEasingCurve(QEasingCurve.OutCubic)
+        self._anim.start()
 
     def _get_animated(self):
         return self._animated
@@ -1050,57 +1225,132 @@ class SpatialLayerCard(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("spatialLayerCard")
-        self.setFixedHeight(90)
+        self.setFixedHeight(120)
         self._setup_ui()
 
     def _setup_ui(self):
-        layout = QHBoxLayout(self)
+        layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 10, 14, 10)
-        layout.setSpacing(12)
+        layout.setSpacing(6)
 
-        left = QVBoxLayout()
-        left.setSpacing(2)
+        top_row = QHBoxLayout()
+        top_row.setSpacing(8)
+
         self.file_name = QLabel("...")
         self.file_name.setObjectName("layerCardName")
-        left.addWidget(self.file_name)
+        top_row.addWidget(self.file_name, 1)
+
+        self.status_badge = QLabel("")
+        self.status_badge.setObjectName("statusBadge")
+        self.status_badge.setFixedHeight(22)
+        top_row.addWidget(self.status_badge, 0, Qt.AlignVCenter)
+
+        layout.addLayout(top_row)
+
+        self.folder_label = QLabel("")
+        self.folder_label.setObjectName("folderLabel")
+        layout.addWidget(self.folder_label)
 
         stats_row = QHBoxLayout()
-        stats_row.setSpacing(8)
+        stats_row.setSpacing(12)
+
+        stat1 = QHBoxLayout()
+        stat1.setSpacing(4)
         self.total_label = QLabel("")
         self.total_label.setObjectName("layerStatText")
-        stats_row.addWidget(self.total_label)
+        stat1.addWidget(self.total_label)
+        stats_row.addLayout(stat1, 1)
+
+        stat2 = QHBoxLayout()
+        stat2.setSpacing(4)
         self.valid_label = QLabel("")
         self.valid_label.setObjectName("layerStatValid")
-        stats_row.addWidget(self.valid_label)
+        stat2.addWidget(self.valid_label)
+        stats_row.addLayout(stat2, 1)
+
+        stat3 = QHBoxLayout()
+        stat3.setSpacing(4)
         self.invalid_label = QLabel("")
         self.invalid_label.setObjectName("layerStatInvalid")
-        stats_row.addWidget(self.invalid_label)
-        layout.addLayout(left, 1)
+        stat3.addWidget(self.invalid_label)
+        stats_row.addLayout(stat3, 1)
+
+        stat4 = QHBoxLayout()
+        stat4.setSpacing(4)
+        self.duplicate_label = QLabel("")
+        self.duplicate_label.setObjectName("layerStatDup")
+        stat4.addWidget(self.duplicate_label)
+        stats_row.addLayout(stat4, 1)
+
+        layout.addLayout(stats_row)
+
+        bottom_row = QHBoxLayout()
+        bottom_row.setSpacing(8)
+
+        self.error_preview = QLabel("")
+        self.error_preview.setObjectName("errorPreviewLabel")
+        self.error_preview.setWordWrap(True)
+        bottom_row.addWidget(self.error_preview, 1)
 
         right = QVBoxLayout()
-        right.setSpacing(4)
+        right.setSpacing(2)
         right.setAlignment(Qt.AlignCenter)
         self.efficiency_label = QLabel("--%")
         self.efficiency_label.setObjectName("efficiencyLabel")
         self.efficiency_label.setAlignment(Qt.AlignCenter)
         right.addWidget(self.efficiency_label, 0, Qt.AlignCenter)
-        layout.addLayout(right, 0)
+        bottom_row.addLayout(right, 0)
 
-    def set_data(self, file_name: str, status: str, total: int, valid: int, invalid: int):
+        layout.addLayout(bottom_row)
+
+    def set_data(self, file_name: str, status: str, total: int, valid: int, invalid: int,
+                 folder_name: str = "", duplicate_records: int = 0, errors: list = None):
         self.file_name.setText(file_name)
-        self.total_label.setText(f"\U0001f4cb {total}")
-        self.valid_label.setText(f"\u2705 {valid}")
-        self.invalid_label.setText(f"\u274c {invalid}")
+
+        status_config = {
+            '通过': ('✅ 通过', 'spatialBadgePass'),
+            '存在错误': ('❌ 异常', 'spatialBadgeFail'),
+            '文件未找到': ('⚠️ 未找到', 'spatialBadgeWarn'),
+            '读取失败': ('💥 失败', 'spatialBadgeFail'),
+        }
+        status_text, badge_obj = status_config.get(status, (status, 'spatialBadgePending'))
+        self.status_badge.setText(f"  {status_text}  ")
+        self.status_badge.setObjectName(badge_obj)
+        self.status_badge.style().unpolish(self.status_badge)
+        self.status_badge.style().polish(self.status_badge)
+
+        if folder_name:
+            self.folder_label.setText(f"📁 {folder_name}")
+            self.folder_label.setVisible(True)
+        else:
+            self.folder_label.setVisible(False)
+
+        self.total_label.setText(f"📋 总计 {total}")
+        self.valid_label.setText(f"✅ 有效 {valid}")
+        self.invalid_label.setText(f"❌ 无效 {invalid}")
+        if duplicate_records > 0:
+            self.duplicate_label.setText(f"🔄 重复 {duplicate_records}")
+            self.duplicate_label.setVisible(True)
+        else:
+            self.duplicate_label.setVisible(False)
 
         pct = f"{valid / max(total, 1) * 100:.1f}%"
         self.efficiency_label.setText(pct)
 
-        theme = get_theme_manager().get_current_theme()
-        is_pass = status == '\u901a\u8fc7'
-        self.efficiency_label.setStyleSheet(
-            f"color: {theme.get('success_text', '#22c55e') if is_pass else theme.get('error_text', '#ef4444')};"
-            f"font-weight: 700; font-size: 13px;"
-        )
+        is_pass = status == '通过'
+        eff_obj = 'efficiencyLabelPass' if is_pass else 'efficiencyLabelFail'
+        self.efficiency_label.setObjectName(eff_obj)
+        self.efficiency_label.style().unpolish(self.efficiency_label)
+        self.efficiency_label.style().polish(self.efficiency_label)
+
+        if errors and len(errors) > 0:
+            error_text = "⚠️ " + "; ".join(errors[:2])
+            if len(errors) > 2:
+                error_text += f" 等{len(errors)}项"
+            self.error_preview.setText(error_text)
+            self.error_preview.setVisible(True)
+        else:
+            self.error_preview.setVisible(False)
 
 
 class SpatialResultGrid(QWidget):
@@ -1137,7 +1387,10 @@ class SpatialResultGrid(QWidget):
                 r.get('status', ''),
                 r.get('total_records', 0),
                 r.get('valid_records', 0),
-                r.get('invalid_records', 0)
+                r.get('invalid_records', 0),
+                folder_name=r.get('folder_name', ''),
+                duplicate_records=r.get('duplicate_records', 0),
+                errors=r.get('errors', [])
             )
             col = i % 2
             row = i // 2
@@ -1263,13 +1516,15 @@ class CrossIssueItem(QFrame):
         self._data = item_data
         self.setObjectName("crossIssueItem")
         self.setCursor(Qt.PointingHandCursor)
-        self.setFixedHeight(85)
+        self._base_height = 90
+        self._expanded_height_add = 50
+        self.setFixedHeight(self._base_height)
         self._expanded = False
         self._setup_ui()
 
     def _setup_ui(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(14, 8, 14, 8)
+        layout.setContentsMargins(14, 10, 14, 10)
         layout.setSpacing(12)
 
         level = self._data.get('level', '')
@@ -1281,7 +1536,7 @@ class CrossIssueItem(QFrame):
         layout.addWidget(indicator)
 
         info_col = QVBoxLayout()
-        info_col.setSpacing(2)
+        info_col.setSpacing(3)
 
         header_row = QHBoxLayout()
         header_row.setSpacing(8)
@@ -1308,21 +1563,25 @@ class CrossIssueItem(QFrame):
             self.detail_label = QLabel(det_str)
             self.detail_label.setObjectName("issueDetailText")
             self.detail_label.setVisible(False)
+            self.detail_label.setWordWrap(True)
             info_col.addWidget(self.detail_label)
         else:
             self.detail_label = None
 
-        chevron = QLabel("\u25bc")
-        chevron.setObjectName("issueChevron")
-        chevron.setFixedWidth(16)
-        chevron.setAlignment(Qt.AlignCenter)
-        layout.addWidget(chevron, 0, Qt.AlignVCenter | Qt.AlignRight)
-
         layout.addLayout(info_col, 1)
+
+        self.chevron_btn = QPushButton("\u25bc")
+        self.chevron_btn.setObjectName("issueChevronBtn")
+        self.chevron_btn.setFixedSize(28, 28)
+        self.chevron_btn.setCursor(Qt.PointingHandCursor)
+        self.chevron_btn.clicked.connect(self._toggle_detail)
+        layout.addWidget(self.chevron_btn, 0, Qt.AlignVCenter | Qt.AlignRight)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self._toggle_detail()
+            child = self.childAt(event.pos())
+            if child != self.chevron_btn:
+                self._toggle_detail()
             self.clicked.emit(self._data)
         super().mousePressEvent(event)
 
@@ -1330,13 +1589,55 @@ class CrossIssueItem(QFrame):
         self._expanded = not self._expanded
         if self.detail_label:
             self.detail_label.setVisible(self._expanded)
-            target_h = 85 + (35 if self._expanded else 0)
+            target_h = self._base_height + (self._expanded_height_add if self._expanded else 0)
+
+            rotation = 180 if self._expanded else 0
+            self._animate_chevron(rotation)
+
             anim = QPropertyAnimation(self, b"minimumHeight")
-            anim.setDuration(150)
+            anim.setDuration(200)
             anim.setStartValue(self.height())
             anim.setEndValue(target_h)
             anim.setEasingCurve(QEasingCurve.OutCubic)
             anim.start()
+
+            anim2 = QPropertyAnimation(self, b"maximumHeight")
+            anim2.setDuration(200)
+            anim2.setStartValue(self.height())
+            anim2.setEndValue(target_h)
+            anim2.setEasingCurve(QEasingCurve.OutCubic)
+            anim2.start()
+
+    def expand(self, animate: bool = False):
+        if not self._expanded and self.detail_label:
+            self._expanded = True
+            self.detail_label.setVisible(True)
+            target_h = self._base_height + self._expanded_height_add
+
+            if animate:
+                rotation = 180
+                self._animate_chevron(rotation)
+
+                anim = QPropertyAnimation(self, b"minimumHeight")
+                anim.setDuration(200)
+                anim.setStartValue(self.height())
+                anim.setEndValue(target_h)
+                anim.setEasingCurve(QEasingCurve.OutCubic)
+                anim.start()
+
+                anim2 = QPropertyAnimation(self, b"maximumHeight")
+                anim2.setDuration(200)
+                anim2.setStartValue(self.height())
+                anim2.setEndValue(target_h)
+                anim2.setEasingCurve(QEasingCurve.OutCubic)
+                anim2.start()
+            else:
+                self.setFixedHeight(target_h)
+                self.chevron_btn.setText('\u25b2')
+
+    def _animate_chevron(self, angle: int):
+        icon = '\u25b2' if angle == 180 else '\u25bc'
+        self.chevron_btn.setText(icon)
 
 
 class CrossCheckListPanel(QWidget):
@@ -1345,6 +1646,7 @@ class CrossCheckListPanel(QWidget):
         self.setObjectName("crossCheckListPanel")
         self._items = []
         self._setup_ui()
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
     def _setup_ui(self):
         main_layout = QVBoxLayout(self)
@@ -1367,12 +1669,13 @@ class CrossCheckListPanel(QWidget):
         self.items_scroll.setWidgetResizable(True)
         self.items_scroll.setFrameShape(QFrame.NoFrame)
         self.items_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.items_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.items_scroll.setObjectName("crossItemsScrollArea")
 
         items_content = QWidget()
         self.items_layout = QVBoxLayout(items_content)
         self.items_layout.setContentsMargins(4, 4, 4, 4)
-        self.items_layout.setSpacing(6)
+        self.items_layout.setSpacing(8)
         self.items_layout.addStretch()
         self.items_scroll.setWidget(items_content)
         main_layout.addWidget(self.items_scroll, 1)
@@ -1395,6 +1698,7 @@ class CrossCheckListPanel(QWidget):
             empty = QLabel("\u2705 \u65e0\u4ea4\u53c9\u6821\u9a8c\u95ee\u9898")
             empty.setObjectName("emptyState")
             empty.setAlignment(Qt.AlignCenter)
+            empty.setMinimumHeight(100)
             self.items_layout.insertWidget(0, empty)
             return
 
@@ -1402,3 +1706,6 @@ class CrossCheckListPanel(QWidget):
             issue_item = CrossIssueItem(item)
             self.items_layout.insertWidget(len(self._items), issue_item)
             self._items.append(issue_item)
+
+        for item in self._items:
+            item.expand(animate=False)

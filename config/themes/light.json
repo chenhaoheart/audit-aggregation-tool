@@ -105,7 +105,7 @@
     "combo_hover_border": "#667eea",
     "combo_text": "#2c3e50",
     "glass_bg": "#ffffff",
-    "glass_border": "rgba(255,255,255,0.30)",
+    "glass_border": "rgba(200,210,220,0.60)",
     "glass_corner_radius": "12",
     "shadow_color": "rgba(99,102,241,0.06)",
     "glow_primary": "rgba(102,126,234,0.25)",

@@ -131,10 +131,7 @@ QLabel#emptyState {{
 
 /* ========== Dashboard 统计指标卡片 ========== */
 QFrame#statMetricCard {{
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-        stop:0 {theme['surface_1']},
-        stop:0.5 {theme['surface_2']},
-        stop:1.0 {theme['surface_1']});
+    background: {theme['card_bg']};
     border: 1px solid {theme['card_border']};
     border-radius: 16px;
     min-height: 100px;
@@ -165,8 +162,8 @@ QFrame#statStatusBar {{
 
 /* ========== Dashboard 检查状态面板 ========== */
 QFrame#checkStatusPanel {{
-    background: {theme['glass_bg']};
-    border: 1px solid {theme['glass_border']};
+    background: {theme['card_bg']};
+    border: 1px solid {theme['card_border']};
     border-radius: 16px;
     min-height: 96px;
 }}
@@ -188,6 +185,29 @@ QLabel#panelSubtitle {{
 
 QLabel#panelDetail {{
     font-size: 10px;
+    color: {theme['text_muted']};
+}}
+
+/* ========== Dashboard 检查分类卡片 ========== */
+QFrame#checkCategoryCard {{
+    background: {theme['card_bg']};
+    border: 1px solid {theme['card_border']};
+    border-radius: 14px;
+    min-height: 120px;
+}}
+
+QFrame#checkCategoryCard:hover {{
+    border: 2px solid {theme['glow_primary']};
+}}
+
+QLabel#checkCardTitle {{
+    font-size: 15px;
+    font-weight: 600;
+    color: {theme['text_primary']};
+}}
+
+QLabel#checkCardDetail {{
+    font-size: 11px;
     color: {theme['text_muted']};
 }}
 
@@ -481,6 +501,18 @@ QLabel#efficiencyLabel {{
     color: {theme['text_secondary']};
 }}
 
+QLabel#efficiencyLabelPass {{
+    font-size: 14px;
+    font-weight: 700;
+    color: {theme.get('success_text', '#22c55e')};
+}}
+
+QLabel#efficiencyLabelFail {{
+    font-size: 14px;
+    font-weight: 700;
+    color: {theme.get('error_text', '#ef4444')};
+}}
+
 QWidget#spatialResultGrid {{
     background: transparent;
 }}
@@ -563,5 +595,165 @@ QLabel#crossWarnCount {{
 QScrollArea#crossItemsScrollArea {{
     background: transparent;
     border: none;
+}}
+
+/* ========== Dashboard 横向滑动卡片 ========== */
+QWidget#horizontalSwipeCards {{
+    background: transparent;
+    border: none;
+}}
+
+QFrame#swipeContentContainer {{
+    background: {theme['card_bg']};
+    border: 1px solid {theme['card_border']};
+    border-radius: 12px;
+}}
+
+QStackedWidget#swipeContentStack {{
+    background: transparent;
+    border: none;
+}}
+
+QWidget#swipeCardContent {{
+    background: transparent;
+}}
+
+QPushButton#swipeNavBtn {{
+    background: {theme['surface_1']};
+    border: 1px solid {theme['border_subtle']};
+    color: {theme['text_secondary']};
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 18px;
+    min-width: 36px;
+    max-width: 36px;
+    min-height: 36px;
+    max-height: 36px;
+    padding: 0px;
+}}
+
+QPushButton#swipeNavBtn:hover {{
+    background: {theme['surface_2']};
+    color: {theme['accent_color']};
+    border: 1px solid {theme['accent_color']};
+}}
+
+QPushButton#swipeNavBtn:disabled {{
+    color: {theme['text_muted']};
+    background: transparent;
+    border: 1px solid {theme['border_subtle']};
+}}
+
+QPushButton#issueChevronBtn {{
+    background: transparent;
+    border: none;
+    color: {theme['text_muted']};
+    font-size: 12px;
+    font-weight: bold;
+    padding: 0px;
+}}
+
+QPushButton#issueChevronBtn:hover {{
+    color: {theme['accent_color']};
+    background: {theme.get('hover_glow', 'rgba(99,102,241,0.10)')};
+    border-radius: 14px;
+}}
+
+QLabel#spatialBadgePass {{
+    color: {theme.get('success_text', '#22c55e')};
+    border-radius: 11px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 10px;
+}}
+
+QLabel#spatialBadgeFail {{
+    color: {theme.get('error_text', '#ef4444')};
+    border-radius: 11px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 10px;
+}}
+
+QLabel#spatialBadgeWarn {{
+    color: {theme.get('warning_text', '#f59e0b')};
+    border-radius: 11px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 10px;
+}}
+
+QLabel#spatialBadgePending {{
+    color: {theme['text_muted']};
+    border-radius: 11px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 10px;
+}}
+
+QFrame#swipeIndicatorBar {{
+    background: transparent;
+    border: none;
+}}
+
+QFrame#settingsSeparator {{
+    background: {theme.get('border_subtle', 'rgba(128,128,128,0.2)')};
+    max-height: 1px;
+}}
+
+QLabel#settingsFieldTitle {{
+    font-size: 12px;
+    font-weight: 600;
+    color: {theme['text_secondary']};
+}}
+
+QLabel#settingsLabel {{
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+}}
+
+QLabel#settingsOpacityValue {{
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    min-width: 40px;
+}}
+
+QToolButton#settingsAddBtn {{
+    font-size: 11px;
+    padding: 2px 8px;
+    border: none;
+    background: transparent;
+    color: {theme['accent_color']};
+}}
+
+QToolButton#settingsAddBtn:hover {{
+    color: {theme.get('hover_accent', theme['accent_color'])};
+    background: {theme.get('hover_glow', 'rgba(99,102,241,0.10)')};
+}}
+
+QToolButton#settingsDelBtn {{
+    font-size: 12px;
+    color: {theme.get('error_text', '#ef4444')};
+    border: none;
+    background: transparent;
+}}
+
+QToolButton#settingsDelBtn:hover {{
+    background: {theme.get('error_bg', 'rgba(239,68,68,0.10)')};
+    border-radius: 4px;
+}}
+
+QLabel#settingsStatusSuccess {{
+    color: {theme.get('success_text', '#22c55e')};
+    font-size: 13px;
+}}
+
+QLabel#settingsStatusWarning {{
+    color: {theme.get('warning_text', '#f59e0b')};
+    font-size: 13px;
 }}
 """

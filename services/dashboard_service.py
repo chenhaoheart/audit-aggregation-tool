@@ -17,6 +17,7 @@ from core.report_reader import find_report_files, load_all_reports
 from core.data_validator import DataValidator
 from utils.data_checker import DataChecker
 from core.checker import WaterSystemChecker
+from core.config_manager import get_shp_match_config
 from services.photo_match_service import PhotoMatchService
 from services.section_chart_service import SectionChartService
 
@@ -44,17 +45,19 @@ class DashboardCheckThread(QThread):
 
 
 def _find_water_system_shp(root_path: str) -> Optional[str]:
+    shp_cfg = get_shp_match_config()
     for root, dirs, files in os.walk(root_path):
         for f in files:
-            if f.endswith('.shp') and '水系' in f:
+            if f.endswith('.shp') and shp_cfg.match_water_system(f):
                 return os.path.join(root, f)
     return None
 
 
 def _find_spatial_data_folder(root_path: str) -> Optional[str]:
+    shp_cfg = get_shp_match_config()
     for root, dirs, files in os.walk(root_path):
         for f in files:
-            if f in ('防治对象分布P.shp', '断面平面位置L.shp'):
+            if shp_cfg.match_spatial_data_file(f):
                 return root
     return None
 
@@ -142,14 +145,19 @@ def run_dashboard_check(root_path: str, progress_callback=None) -> dict:
         water_shp = _find_water_system_shp(root_path)
         spatial_folder = _find_spatial_data_folder(subfolder)
 
-        if water_shp and spatial_folder:
+        if spatial_folder:
+            if not water_shp:
+                result['spatial_check']['warnings'].append("缺少水系SHP文件，仅执行图层自检（跳过水系关联检查）")
+                emit("spatial", "⚠️ 缺少水系SHP文件，仅执行图层自检")
+
             checker = WaterSystemChecker(spatial_folder, water_shp)
             checker.progress_callback = lambda msg: emit("spatial", msg)
             check_results = checker.process_all()
 
-            duanmian = [r for r in checker.all_records if '断面平面位置' in r.get('源文件', '')]
-            fangzhi = [r for r in checker.all_records if '防治对象分布' in r.get('源文件', '')]
-            yinhuan = [r for r in checker.all_records if '隐患要素分布' in r.get('源文件', '')]
+            shp_cfg = get_shp_match_config()
+            duanmian = [r for r in checker.all_records if shp_cfg.get_layer_keyword('duanmian') in r.get('源文件', '')]
+            fangzhi = [r for r in checker.all_records if shp_cfg.get_layer_keyword('fangzhi') in r.get('源文件', '')]
+            yinhuan = [r for r in checker.all_records if shp_cfg.get_layer_keyword('yinhuan') in r.get('源文件', '')]
 
             result['spatial_check']['results'] = check_results
             result['spatial_check']['all_records'] = checker.all_records
@@ -166,9 +174,8 @@ def run_dashboard_check(root_path: str, progress_callback=None) -> dict:
             emit("spatial", f"空间数据检查完成: {len(check_results)} 个图层, {invalid_count} 个异常")
         else:
             if not water_shp:
-                result['spatial_check']['warnings'].append("未找到水系SHP文件")
-            if not spatial_folder:
-                result['spatial_check']['warnings'].append("未找到空间数据文件夹")
+                result['spatial_check']['warnings'].append("缺少水系SHP文件")
+            result['spatial_check']['warnings'].append("未找到空间数据文件夹")
             result['spatial_check']['status'] = 'warn'
             emit("spatial", "空间数据检查跳过: 缺少必要文件")
     except Exception as e:

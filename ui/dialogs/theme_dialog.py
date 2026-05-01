@@ -208,19 +208,12 @@ class ThemeDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
 
-        self.confirm_btn = QPushButton("确定")
-        self.confirm_btn.setObjectName("confirmBtn")
-        self.confirm_btn.setMinimumWidth(100)
-        self.confirm_btn.clicked.connect(self._on_confirm)
+        self.close_btn = QPushButton("关闭")
+        self.close_btn.setObjectName("cancelBtn")
+        self.close_btn.setMinimumWidth(100)
+        self.close_btn.clicked.connect(self.accept)
 
-        self.cancel_btn = QPushButton("取消")
-        self.cancel_btn.setObjectName("cancelBtn")
-        self.cancel_btn.setMinimumWidth(100)
-        self.cancel_btn.clicked.connect(self._on_cancel)
-
-        btn_layout.addWidget(self.confirm_btn)
-        btn_layout.addSpacing(12)
-        btn_layout.addWidget(self.cancel_btn)
+        btn_layout.addWidget(self.close_btn)
 
         main_layout.addLayout(btn_layout)
         self.setLayout(main_layout)
@@ -336,6 +329,9 @@ class ThemeDialog(QDialog):
 
         self._update_opacity_visibility()
 
+        theme_manager = get_theme_manager()
+        theme_manager.set_mode(self._selected_theme)
+
     def _update_opacity_visibility(self):
         is_glass = self._selected_theme == ThemeMode.GLASS
         self.opacity_frame.setVisible(is_glass)
@@ -345,19 +341,6 @@ class ThemeDialog(QDialog):
         opacity = value / 100.0
         theme_manager = get_theme_manager()
         theme_manager.set_glass_opacity(opacity)
-
-    def _on_confirm(self):
-        if self._selected_theme:
-            theme_manager = get_theme_manager()
-            theme_manager.set_mode(self._selected_theme)
-            self.theme_selected.emit(self._selected_theme)
-        self.accept()
-
-    def _on_cancel(self):
-        if self._original_theme and self._original_theme != self._selected_theme:
-            theme_manager = get_theme_manager()
-            theme_manager.set_mode(self._original_theme)
-        self.reject()
 
     def get_selected_theme(self) -> str:
         return self._selected_theme
