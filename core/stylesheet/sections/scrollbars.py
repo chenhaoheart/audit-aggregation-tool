@@ -208,4 +208,43 @@ QScrollArea#cardContentScrollArea > QScrollBar::add-page:vertical,
 QScrollArea#cardContentScrollArea > QScrollBar::sub-page:vertical {{
     background: transparent;
 }}
+
+/* ========== 照片画廊滚动区域 ========== */
+QScrollArea#photoGalleryScrollArea {{
+    background: transparent;
+    border: none;
+}}
+
+QScrollArea#photoGalleryScrollArea > QScrollBar:vertical {{
+    background: rgba(148,163,184,0.08);
+    width: 12px;
+    border-radius: 6px;
+    margin: 4px 2px;
+}}
+
+QScrollArea#photoGalleryScrollArea > QScrollBar::handle:vertical {{
+    background: rgba(100,116,139,0.35);
+    border-radius: 6px;
+    min-height: 30px;
+}}
+
+QScrollArea#photoGalleryScrollArea > QScrollBar::handle:vertical:hover {{
+    background: rgba(100,116,139,0.55);
+}}
+
+QScrollArea#photoGalleryScrollArea > QScrollBar::handle:vertical:pressed {{
+    background: rgba(100,116,139,0.70);
+}}
+
+QScrollArea#photoGalleryScrollArea > QScrollBar::add-line:vertical,
+QScrollArea#photoGalleryScrollArea > QScrollBar::sub-line:vertical {{
+    height: 0;
+    border: none;
+    background: none;
+}}
+
+QScrollArea#photoGalleryScrollArea > QScrollBar::add-page:vertical,
+QScrollArea#photoGalleryScrollArea > QScrollBar::sub-page:vertical {{
+    background: transparent;
+}}
 """

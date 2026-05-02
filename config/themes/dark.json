@@ -155,6 +155,7 @@
     "badge_running_border": "rgba(99,102,241,0.25)",
     "gauge_score_high": "#22c55e",
     "gauge_score_mid": "#f59e0b",
-    "gauge_score_low": "#ef4444"
+    "gauge_score_low": "#ef4444",
+    "slider_groove_bg": "#6b7280"
   }
 }

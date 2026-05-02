@@ -214,7 +214,7 @@ QSlider#zoomSlider {{
 QSlider#zoomSlider::groove:horizontal {{
     border: none;
     height: 4px;
-    background: {theme['sidebar_separator']};
+    background: {theme['slider_groove_bg']};
     border-radius: 2px;
 }}
 

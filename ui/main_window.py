@@ -23,10 +23,10 @@ from datetime import datetime
 from ui.components.ant_menu import AntSidebar, ITEM_TO_PAGE
 from ui.pages.check_shp import CheckPage
 from ui.pages.report import ReportPage
-from ui.pages.section_check_page import SectionCheckPage
+from ui.pages.check_section import SectionCheckPage
 from ui.pages.shp_formatter_page import ShpFormatterPage
-from ui.pages.photo_gallery_page import PhotoGalleryPage
-from ui.pages.dashboard_page import DashboardPage
+from ui.pages.photo_gallery import PhotoGalleryPage
+from ui.pages.dashboard import DashboardPage
 from ui.dialogs.log_dialog import LogDialog
 from core.theme_manager import get_theme_manager, ThemeMode
 from core.effects_manager import ButtonClickHelper, ButtonShadowHelper

@@ -5,7 +5,7 @@
 
 from .check_shp import CheckPage
 from .report import ReportPage
-from .section_check_page import SectionCheckPage
+from .check_section import SectionCheckPage
 from .shp_formatter_page import ShpFormatterPage
-from .photo_gallery_page import PhotoGalleryPage
-from .dashboard_page import DashboardPage
+from .photo_gallery import PhotoGalleryPage
+from .dashboard import DashboardPage

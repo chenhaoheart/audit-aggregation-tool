@@ -80,6 +80,7 @@ QFrame#photoCard {{
     border: 1px solid {photo_card_border};
     border-radius: 12px;
     padding: 0;
+    min-height: 60px;
 }}
 
 QFrame#photoCard:hover {{

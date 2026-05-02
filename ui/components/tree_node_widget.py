@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QColor
 
-from core.theme_manager import get_theme_manager
+from core.theme_manager import get_theme_manager, ThemeGroup
 from ui.components.photo_card import PhotoCard
 
 
@@ -107,12 +107,7 @@ class TreeNodeWidget(QFrame):
 
         self.name_label = QLabel(path if is_root else name)
         self.name_label.setObjectName("treeNodeName")
-        text_primary = theme.get('text_primary', '#1e293b')
-        self.name_label.setStyleSheet(f"""
-            font-weight: 600;
-            font-size: 13px;
-            color: {text_primary};
-        """)
+        self._update_name_color()
         self.name_label.setToolTip(path)
         header_layout.addWidget(self.name_label, 1, Qt.AlignVCenter)
 
@@ -212,6 +207,19 @@ class TreeNodeWidget(QFrame):
             self.arrow_btn.setText("")
             self.arrow_btn.setDisabled(True)
 
+    def _update_name_color(self):
+        if not hasattr(self, 'name_label'):
+            return
+        theme = self._theme_manager.get_current_theme()
+        text_color = theme.get('text_primary', '#334155')
+        self.name_label.setStyleSheet(f"""
+            QLabel#treeNodeName {{
+                font-weight: 600;
+                font-size: 13px;
+                color: {text_color};
+            }}
+        """)
+
     def toggle_expand(self):
         self._expanded = not self._expanded
         self._update_arrow()
@@ -230,8 +238,9 @@ class TreeNodeWidget(QFrame):
         self._animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
 
         if self._expanded:
-            self.children_container.setMaximumHeight(0)
+            self.children_container.setMaximumHeight(16777215)
             target_height = self.children_container.sizeHint().height()
+            self.children_container.setMaximumHeight(0)
             self._animation.setStartValue(0)
             self._animation.setEndValue(max(target_height, 100))
             self._animation.finished.connect(self._on_expand_finished)

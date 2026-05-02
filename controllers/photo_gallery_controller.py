@@ -1,24 +1,10 @@
 # -*- coding: utf-8 -*-
-"""
-图册管理页面控制器
-
-职责:
-- 扫描流程控制（启动扫描、进度回调、完成/错误处理）
-- 附表校验流程控制（启动校验、线程管理、结果处理）
-- 选择状态管理（全选/取消/选中计数）
-- 视图切换逻辑（树形/列表/地图）
-- 过滤逻辑（搜索/类型过滤）
-- 主题变更时UI更新协调
-- 批量操作（重命名/删除）
-- 地图视图数据构建
-"""
-
 import os
 from datetime import datetime
-from typing import Set, Optional, List
+from typing import Set, Optional
 
 from PySide6.QtCore import QObject, Signal, QThread
-from PySide6.QtWidgets import QMessageBox, QCheckBox
+from PySide6.QtWidgets import QWidget, QMessageBox, QCheckBox
 
 from services.photo_gallery_service import PhotoGalleryService
 from services.photo_match_service import PhotoMatchService, MatchWorker
@@ -48,9 +34,9 @@ class PhotoGalleryController(QObject):
     tree_rebuilt = Signal()
     results_cleared = Signal()
 
-    def __init__(self, page: 'PhotoGalleryPage', parent=None):
+    def __init__(self, parent_widget: QWidget = None, parent=None):
         super().__init__(parent)
-        self._page = page
+        self._parent_widget = parent_widget
         self.service = PhotoGalleryService(self)
         self.match_service = PhotoMatchService(self)
         self.theme_manager = get_theme_manager()
@@ -80,7 +66,7 @@ class PhotoGalleryController(QObject):
 
     def start_scan(self, path: str):
         if not path:
-            QMessageBox.warning(self._page, "警告", "请输入或选择文件夹路径")
+            QMessageBox.warning(self._parent_widget, "警告", "请输入或选择文件夹路径")
             return
 
         self.folder_path = path
@@ -102,11 +88,14 @@ class PhotoGalleryController(QObject):
     def _on_error(self, msg: str):
         self.scan_error.emit(msg)
         self._log(f"错误: {msg}")
-        QMessageBox.critical(self._page, "错误", f"扫描失败:\n{msg}")
+        QMessageBox.critical(self._parent_widget, "错误", f"扫描失败:\n{msg}")
 
     def build_tree(self, tree_data: dict) -> TreeNodeWidget:
         accent = self.theme_manager.get_current_theme().get('accent_color', '#6366f1')
-        root_node = TreeNodeWidget(tree_data, depth=0, grid_columns=self.grid_columns, accent=accent, parent=self._page)
+        root_node = TreeNodeWidget(
+            tree_data, depth=0, grid_columns=self.grid_columns,
+            accent=accent, parent=self._parent_widget
+        )
         root_node.expand_changed.connect(lambda: None)
         root_node.delete_requested.connect(self._on_delete_folder_requested)
 
@@ -201,7 +190,7 @@ class PhotoGalleryController(QObject):
         previewable = [f['path'] for f in all_files if f['type'] == 'photo']
         index = previewable.index(file_path) if file_path in previewable else 0
 
-        dialog = PhotoPreviewDialog(self._page)
+        dialog = PhotoPreviewDialog(self._parent_widget)
         dialog.set_files(previewable, index)
         dialog.exec()
 
@@ -212,9 +201,7 @@ class PhotoGalleryController(QObject):
             self.selected_files.discard(file_path)
         self.selection_changed.emit(len(self.selected_files))
 
-    def on_list_selection_changed(self, file_path: str, state, list_table):
-        from PySide6.QtCore import Qt
-        selected = state == Qt.Checked
+    def on_list_selection_changed(self, file_path: str, selected: bool):
         if selected:
             self.selected_files.add(file_path)
         else:
@@ -227,14 +214,6 @@ class PhotoGalleryController(QObject):
 
         self.selection_changed.emit(len(self.selected_files))
 
-    def update_list_selection(self, list_table, select_all: bool = True):
-        for row in range(list_table.rowCount()):
-            check_widget = list_table.cellWidget(row, 0)
-            if check_widget:
-                checkbox = check_widget.findChild(QCheckBox)
-                if checkbox:
-                    checkbox.setChecked(select_all)
-
     def update_selected_count(self) -> int:
         return len(self.selected_files)
 
@@ -245,7 +224,7 @@ class PhotoGalleryController(QObject):
         if not self.selected_files:
             return
 
-        dialog = BatchRenameDialog(len(self.selected_files), self._page)
+        dialog = BatchRenameDialog(len(self.selected_files), self._parent_widget)
         if dialog.exec():
             pattern = dialog.get_pattern()
             start_index = dialog.get_start_index()
@@ -255,7 +234,7 @@ class PhotoGalleryController(QObject):
         return False
 
     def _on_delete_folder_requested(self, folder_path: str):
-        dialog = DeleteConfirmDialog(folder_path, self._page)
+        dialog = DeleteConfirmDialog(folder_path, self._parent_widget)
         if dialog.exec():
             if self.service.delete_folder(folder_path):
                 self._log(f"已删除: {folder_path}")
@@ -264,7 +243,7 @@ class PhotoGalleryController(QObject):
 
     def run_photo_match(self):
         if not self.folder_path:
-            QMessageBox.warning(self._page, "警告", "请先扫描文件夹")
+            QMessageBox.warning(self._parent_widget, "警告", "请先扫描文件夹")
             return
 
         self.match_started.emit()
@@ -288,7 +267,7 @@ class PhotoGalleryController(QObject):
         self.match_error.emit(msg)
 
     def _on_match_worker_finished(self, result: dict):
-        if self._match_thread and self._match_thread:
+        if self._match_thread:
             self._match_thread.quit()
             self._match_thread.wait()
         if result:
@@ -305,7 +284,7 @@ class PhotoGalleryController(QObject):
         if f2_unmatched == 0 and f3_unmatched == 0 and photo_unmatched == 0:
             self._log("✅ 附表与照片匹配校验通过：所有记录均已匹配")
 
-        dialog = PhotoMatchReportDialog(result, self._page)
+        dialog = PhotoMatchReportDialog(result, self._parent_widget)
         dialog.exec()
 
     def on_map_photo_clicked(self, photo_path: str):
@@ -323,111 +302,50 @@ class PhotoGalleryController(QObject):
         except ValueError:
             index = 0
 
-        dialog = PhotoPreviewDialog(self._page)
+        dialog = PhotoPreviewDialog(self._parent_widget)
         dialog.set_files(photos, index)
         dialog.exec()
 
-    def update_map_view(self, map_widget):
-        if not HAS_WEB_ENGINE or not map_widget or not self._root_node:
-            return
+    def get_filtered_files(self) -> list:
+        if not self._root_node:
+            return []
+        all_files = self._root_node.get_all_files()
+        return [f for f in all_files if self.service.file_matches_filter(f, self.search_query, self.filter_type)]
 
-        map_widget.clear_all()
+    def get_map_data(self) -> dict:
+        if not self._root_node:
+            return {}
 
         all_files = self._root_node.get_all_files()
-        photo_geojson = self.service.build_photo_geojson(all_files)
         theme = self.theme_manager.get_current_theme()
-        accent = theme.get('accent_color', '#6366f1')
-        success_color = theme.get('success_color', '#10b981')
-        if photo_geojson['features']:
-            map_widget.load_geojson('photos', photo_geojson, accent)
+
+        photo_geojson = self.service.build_photo_geojson(all_files)
+
+        fubiao2_geojson = None
+        fubiao3_geojson = None
 
         if self._match_result:
             f2_matched = self._match_result.get('fubiao2', {}).get('matched', [])
             if f2_matched:
-                f2_features = self.service.build_fubiao_geojson(f2_matched, '附表2-桥涵')
-                if f2_features['features']:
-                    map_widget.load_geojson('fubiao2_markers', f2_features, accent)
+                fubiao2_geojson = self.service.build_fubiao_geojson(f2_matched, '附表2-桥涵')
 
             f3_matched = self._match_result.get('fubiao3', {}).get('matched', [])
             if f3_matched:
-                f3_features = self.service.build_fubiao_geojson(f3_matched, '附表3-沟滩占地')
-                if f3_features['features']:
-                    map_widget.load_geojson('fubiao3_markers', f3_features, success_color)
+                fubiao3_geojson = self.service.build_fubiao_geojson(f3_matched, '附表3-沟滩占地')
 
-        map_widget.fit_bounds()
+        return {
+            'photo_geojson': photo_geojson,
+            'fubiao2_geojson': fubiao2_geojson,
+            'fubiao3_geojson': fubiao3_geojson,
+            'accent': theme.get('accent_color', '#6366f1'),
+            'success_color': theme.get('success_color', '#10b981')
+        }
 
-    def update_list_view(self, list_table):
-        if not self._root_node:
-            return
+    def get_tree_data(self, result: dict) -> dict:
+        return self.service.build_tree_structure(result)
 
-        all_files = self._root_node.get_all_files()
-        filtered = [f for f in all_files if self.service.file_matches_filter(f, self.search_query, self.filter_type)]
-
-        list_table.setRowCount(len(filtered))
-
-        for row, file_info in enumerate(filtered):
-            check_widget, checkbox = self._create_check_widget(file_info)
-            list_table.setCellWidget(row, 0, check_widget)
-
-            from PySide6.QtWidgets import QTableWidgetItem
-            list_table.setItem(row, 1, QTableWidgetItem(file_info['name']))
-            list_table.setItem(row, 2, QTableWidgetItem("照片" if file_info['type'] == 'photo' else "视频"))
-            list_table.setItem(row, 3, QTableWidgetItem(self.service.format_size(file_info['size'])))
-            list_table.setItem(row, 4, QTableWidgetItem(file_info['modified']))
-            list_table.setItem(row, 5, QTableWidgetItem("有" if file_info['has_gps'] else "无"))
-            list_table.setItem(row, 6, QTableWidgetItem(file_info['path']))
-
-        header_h = list_table.horizontalHeader().height() + 4
-        row_h = list_table.rowHeight(0) if filtered else 30
-        total_h = header_h + len(filtered) * row_h + 4
-        list_table.setMinimumHeight(total_h)
-        list_table.setMaximumHeight(total_h)
-
-    def _create_check_widget(self, file_info: dict):
-        from PySide6.QtWidgets import QWidget, QHBoxLayout
-        from PySide6.QtCore import Qt
-
-        check_widget = QWidget()
-        check_layout = QHBoxLayout(check_widget)
-        checkbox = QCheckBox()
-        checkbox.setChecked(file_info['path'] in self.selected_files)
-        checkbox.stateChanged.connect(lambda s, p=file_info['path']: self.on_list_selection_changed(p, s, None))
-        check_layout.addWidget(checkbox)
-        check_layout.setAlignment(Qt.AlignCenter)
-        return check_widget, checkbox
-
-    def update_theme_colors(self):
-        theme = self.theme_manager.get_current_theme()
-        accent = theme.get('accent_color', '#6366f1')
-
-        if self._root_node:
-            self._update_tree_colors(self._root_node, accent)
-
-    def _update_tree_colors(self, node: TreeNodeWidget, accent: str):
-        node._accent = accent
-        if hasattr(node, 'header'):
-            theme = self.theme_manager.get_current_theme()
-            hover_bg = theme.get('surface_1', theme.get('content_bg', '#f8fafc'))
-            hover_border = theme.get('border_subtle', theme.get('card_border', '#e2e8f0'))
-            indent = node.depth * 16
-            node.header.setStyleSheet(f"""
-                QFrame#treeNodeHeader {{
-                    padding: 8px 12px; margin-left: {indent}px;
-                    border-radius: 10px; background: transparent;
-                    border: 1px solid transparent;
-                }}
-                QFrame#treeNodeHeader:hover {{
-                    background: {hover_bg};
-                    border-color: {hover_border};
-                }}
-            """)
-        if hasattr(node, '_update_arrow'):
-            node._update_arrow()
-        for card in node._card_widgets:
-            card._accent = accent
-            card._apply_scale(PhotoCard._current_scale)
-        for child in node._child_widgets:
-            self._update_tree_colors(child, accent)
+    def format_file_size(self, size: int) -> str:
+        return self.service.format_size(size)
 
     def clear_results(self):
         self.scan_result = None

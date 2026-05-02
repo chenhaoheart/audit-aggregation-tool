@@ -75,10 +75,12 @@ class PhotoCard(QFrame):
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
 
+        base = max(60, int(PhotoCard.BASE_SIZE * PhotoCard._current_scale))
+
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignCenter)
-        base = max(60, int(PhotoCard.BASE_SIZE * PhotoCard._current_scale))
         self.image_label.setMinimumSize(base, base)
+        self.image_label.setMaximumSize(base, base)
         self.image_label.setContentsMargins(0, 0, 0, 0)
         self.image_label.setStyleSheet("margin: 0; padding: 0;")
         layout.addWidget(self.image_label, 1)
@@ -152,10 +154,15 @@ class PhotoCard(QFrame):
 
         icon = "🎬" if self.file_info['type'] == 'video' else "📷"
         theme = self._theme_manager.get_current_theme()
+        base = max(60, int(PhotoCard.BASE_SIZE * PhotoCard._current_scale))
         self.image_label.setText(icon)
+        self.image_label.setMinimumSize(base, base)
+        self.image_label.setMaximumSize(base, base)
         self.image_label.setStyleSheet(f"""
             font-size: 32px;
             color: {theme.get('text_muted', '#94a3b8')};
+            min-width: {base}px;
+            min-height: {base}px;
         """)
         self._update_overlay_positions()
 
