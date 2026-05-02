@@ -185,8 +185,11 @@ class ThemeManager(QObject):
     def _save_config(self):
         try:
             data = {'mode': self._mode, 'glass_opacity': self._glass_opacity}
+            print(f"[DEBUG] 保存配置到: {self.config_file}")
+            print(f"[DEBUG] 保存内容: {data}")
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
+            print(f"[DEBUG] 配置保存成功！")
         except Exception as e:
             print(f"保存主题配置失败: {e}")
 

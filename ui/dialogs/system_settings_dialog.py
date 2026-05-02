@@ -146,10 +146,13 @@ class ThemeSettingsPage(QWidget):
         return header_card
 
     def _load_current(self):
+        print(f"[DEBUG-THEME-PAGE] _load_current() 被调用")
         theme_manager = get_theme_manager()
         current_mode = theme_manager.mode
+        print(f"[DEBUG-THEME-PAGE] 当前主题: {current_mode}")
         self._original_theme = current_mode
         self._selected_theme = current_mode
+        print(f"[DEBUG-THEME-PAGE] 原始主题已记录: {self._original_theme}")
 
         group = get_theme_group(current_mode) or ThemeGroup.LIGHT
         self._current_group = group
@@ -231,11 +234,13 @@ class ThemeSettingsPage(QWidget):
         QTimer.singleShot(120, on_fade_done)
 
     def _on_theme_clicked(self, theme_mode: str):
+        print(f"[DEBUG-THEME-PAGE] _on_theme_clicked 被调用: {theme_mode}")
         for mode, card in self._theme_cards.items():
             card.set_selected(False)
         if theme_mode in self._theme_cards:
             self._theme_cards[theme_mode].set_selected(True)
             self._selected_theme = theme_mode
+            print(f"[DEBUG-THEME-PAGE] 已选择主题: {self._selected_theme}")
         self._update_opacity_visibility()
         self._apply_theme_immediately()
 
@@ -249,15 +254,21 @@ class ThemeSettingsPage(QWidget):
         theme_manager.set_glass_opacity(value / 100.0)
 
     def _apply_theme_immediately(self):
+        print(f"[DEBUG-THEME-PAGE] _apply_theme_immediately() 被调用")
         if self._selected_theme:
+            print(f"[DEBUG-THEME-PAGE] 准备应用主题: {self._selected_theme}")
             theme_manager = get_theme_manager()
             theme_manager.set_mode(self._selected_theme)
             self.theme_changed.emit(self._selected_theme)
+            print(f"[DEBUG-THEME-PAGE] 主题已应用并发射信号")
 
     def restore_original(self):
+        print(f"[DEBUG-THEME-PAGE] restore_original() 被调用")
+        print(f"[DEBUG-THEME-PAGE] 原始主题: {self._original_theme}")
         if self._original_theme:
             theme_manager = get_theme_manager()
             theme_manager.set_mode(self._original_theme)
+            print(f"[DEBUG-THEME-PAGE] 已恢复为原始主题: {self._original_theme}")
 
 
 class _GroupSelectorCard(QPushButton):
@@ -1120,7 +1131,9 @@ class SystemSettingsDialog(QDialog):
         self.setStyleSheet(theme_manager.get_stylesheet())
 
     def reject(self):
-        self.theme_page.restore_original()
+        print(f"[DEBUG-SYSTEM-DIALOG] reject() 被调用")
+        print(f"[DEBUG-SYSTEM-DIALOG] 不再调用 restore_original()，因为点击即保存")
+        # self.theme_page.restore_original()  ← 已删除！不再恢复原主题
         super().reject()
 
     def showEvent(self, event):

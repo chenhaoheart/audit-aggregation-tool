@@ -124,11 +124,11 @@ class Sidebar(QFrame):
 
     def _show_theme_dialog(self):
         """显示主题选择对话框"""
+        print(f"[DEBUG-SIDEBAR] 打开主题对话框")
         dialog = ThemeDialog(self)
-        if dialog.exec():
-            selected_theme = dialog.get_selected_theme()
-            if selected_theme:
-                self._on_theme_changed(selected_theme)
+        result = dialog.exec()
+        print(f"[DEBUG-SIDEBAR] 对话框关闭，返回值: {result}")
+        print(f"[DEBUG-SIDEBAR] 不再调用 _on_theme_changed，因为点击即保存")
 
     def _on_theme_changed(self, mode: str):
         """主题更改"""

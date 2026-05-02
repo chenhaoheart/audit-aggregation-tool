@@ -21,8 +21,8 @@ from PySide6.QtGui import QPalette, QColor, QPainter, QBrush
 from datetime import datetime
 
 from ui.components.ant_menu import AntSidebar, ITEM_TO_PAGE
-from ui.pages.check_page import CheckPage
-from ui.pages.report_page import ReportPage
+from ui.pages.check_shp import CheckPage
+from ui.pages.report import ReportPage
 from ui.pages.section_check_page import SectionCheckPage
 from ui.pages.shp_formatter_page import ShpFormatterPage
 from ui.pages.photo_gallery_page import PhotoGalleryPage

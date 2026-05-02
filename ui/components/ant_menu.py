@@ -250,11 +250,13 @@ class ModernSidebar(QFrame):
         self.item_selected.emit(item_id)
 
     def _show_theme_dialog(self):
+        print(f"[DEBUG-ANT-MENU] 打开系统设置对话框")
         from ui.dialogs.system_settings_dialog import SystemSettingsDialog
         dialog = SystemSettingsDialog(self)
         dialog.theme_changed.connect(self.theme_changed.emit)
         dialog.config_changed.connect(lambda: None)
-        dialog.exec()
+        result = dialog.exec()
+        print(f"[DEBUG-ANT-MENU] 对话框关闭，返回值: {result}")
 
     def keyPressEvent(self, event: QKeyEvent):
         if event.key() in (Qt.Key_Up, Qt.Key_Down):

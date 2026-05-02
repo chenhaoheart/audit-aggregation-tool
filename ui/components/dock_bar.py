@@ -140,10 +140,7 @@ class DockBar(QFrame):
         """显示主题选择对话框"""
         from ui.dialogs.theme_dialog import ThemeDialog
         dialog = ThemeDialog(self)
-        if dialog.exec():
-            selected_theme = dialog.get_selected_theme()
-            if selected_theme:
-                self._on_theme_changed(selected_theme)
+        dialog.exec()
 
     def _on_theme_changed(self, mode: str):
         """主题更改"""

@@ -211,7 +211,7 @@ class ThemeDialog(QDialog):
         self.close_btn = QPushButton("关闭")
         self.close_btn.setObjectName("cancelBtn")
         self.close_btn.setMinimumWidth(100)
-        self.close_btn.clicked.connect(self.accept)
+        self.close_btn.clicked.connect(self._on_close)
 
         btn_layout.addWidget(self.close_btn)
 
@@ -320,17 +320,21 @@ class ThemeDialog(QDialog):
         QTimer.singleShot(120, on_fade_done)
 
     def _on_theme_clicked(self, theme_mode: str):
+        print(f"[DEBUG] _on_theme_clicked 被调用: {theme_mode}")
         for mode, card in self._theme_cards.items():
             card.set_selected(False)
 
         if theme_mode in self._theme_cards:
             self._theme_cards[theme_mode].set_selected(True)
             self._selected_theme = theme_mode
+            print(f"[DEBUG] 已选择主题: {self._selected_theme}")
 
         self._update_opacity_visibility()
 
+        print(f"[DEBUG] 准备调用 set_mode({self._selected_theme})")
         theme_manager = get_theme_manager()
         theme_manager.set_mode(self._selected_theme)
+        print(f"[DEBUG] set_mode 调用完成")
 
     def _update_opacity_visibility(self):
         is_glass = self._selected_theme == ThemeMode.GLASS
@@ -344,6 +348,13 @@ class ThemeDialog(QDialog):
 
     def get_selected_theme(self) -> str:
         return self._selected_theme
+
+    def _on_close(self):
+        print(f"[DEBUG-DIALOG] 关闭按钮被点击")
+        print(f"[DEBUG-DIALOG] 当前选中主题: {self._selected_theme}")
+        theme_manager = get_theme_manager()
+        print(f"[DEBUG-DIALOG] theme_manager.mode: {theme_manager.mode}")
+        self.accept()
 
     def showEvent(self, event):
         super().showEvent(event)
