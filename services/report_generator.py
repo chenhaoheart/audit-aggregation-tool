@@ -93,7 +93,7 @@ def build_report_html(check_result: dict, root_path: str) -> str:
         level_icon = '❌' if it.get('level')=='error' else '⚠️'
         detail_data = it.get('detail', [])
         if isinstance(detail_data, list):
-            detail_str = '; '.join(safe_html(str(d)) for d in detail_data[:3])
+            detail_str = '; '.join(safe_html(str(d)) for d in detail_data)
         else:
             detail_str = safe_html(str(detail_data))
         cr_rows += "<tr><td>" + level_icon + "</td><td>" + safe_html(it.get('category',''))

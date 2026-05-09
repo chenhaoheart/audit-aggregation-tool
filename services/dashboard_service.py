@@ -111,6 +111,8 @@ def run_dashboard_check(root_path: str, progress_callback=None) -> dict:
     if not subfolder:
         subfolder = root_path
 
+    result['_subfolder'] = subfolder
+
     # ========== 1. 附表1/2/3检查 ==========
     emit("fubiao", "开始附表数据检查...")
     try:
@@ -237,7 +239,10 @@ def run_dashboard_check(root_path: str, progress_callback=None) -> dict:
         # 5.3 断面测量表与空间数据【断面平面位置】图层校验
         _cross_section_vs_spatial(result, cross_items, emit)
 
-        # 5.4 空间数据隐患要素分布与照片匹配
+        # 5.4 测量数据Excel文件名与空间数据(防治对象/隐患要素)图层校验
+        _cross_measure_vs_spatial(result, cross_items, emit)
+
+        # 5.5 空间数据隐患要素分布与照片匹配
         _cross_yinhuan_vs_photo(result, cross_items, emit)
 
         result['cross_check']['items'] = cross_items
@@ -313,7 +318,8 @@ def _cross_fubiao_vs_spatial(result: dict, cross_items: list, emit):
     fz_codes = set()
     fz_names = set()
     for rec in fangzhi_records:
-        code = str(rec.get('代码', '')).strip()
+        raw = rec.get('代码', '')
+        code = str(int(raw)) if isinstance(raw, (int, float)) else str(raw).strip()
         name = str(rec.get('名称', '')).strip()
         if code:
             fz_codes.add(code)
@@ -326,7 +332,7 @@ def _cross_fubiao_vs_spatial(result: dict, cross_items: list, emit):
             'level': 'error',
             'category': '附表1↔防治对象分布',
             'desc': f"附表1有 {len(fb1_only_codes)} 条记录在防治对象分布P.shp中不存在(按代码匹配)",
-            'detail': list(fb1_only_codes)[:5]
+            'detail': list(fb1_only_codes)
         })
 
     fz_only_codes = fz_codes - fb1_codes
@@ -335,23 +341,24 @@ def _cross_fubiao_vs_spatial(result: dict, cross_items: list, emit):
             'level': 'error',
             'category': '附表1↔防治对象分布',
             'desc': f"防治对象分布P.shp有 {len(fz_only_codes)} 条记录在附表1中不存在(按代码匹配)",
-            'detail': list(fz_only_codes)[:5]
+            'detail': list(fz_only_codes)
         })
 
     fb2_codes = set()
     fb3_codes = set()
     for r in fubiao2_records:
-        code = str(r.get('6.编号', '')).strip()
+        code = str(r.get('6.编码', '') or r.get('6.编号', '')).strip()
         if code:
             fb2_codes.add(code)
     for r in fubiao3_records:
-        code = str(r.get('6.编号', '')).strip()
+        code = str(r.get('6.编码', '') or r.get('6.编号', '')).strip()
         if code:
             fb3_codes.add(code)
 
     yh_codes = set()
     for rec in yinhuan_records:
-        code = str(rec.get('编号', '')).strip()
+        raw = rec.get('编号', '')
+        code = str(int(raw)) if isinstance(raw, (int, float)) else str(raw).strip()
         if code:
             yh_codes.add(code)
 
@@ -361,7 +368,7 @@ def _cross_fubiao_vs_spatial(result: dict, cross_items: list, emit):
             'level': 'error',
             'category': '附表2↔隐患要素分布',
             'desc': f"附表2有 {len(fb2_only)} 条记录在隐患要素分布L.shp中不存在",
-            'detail': list(fb2_only)[:5]
+            'detail': list(fb2_only)
         })
 
     fb3_only = fb3_codes - yh_codes
@@ -370,7 +377,7 @@ def _cross_fubiao_vs_spatial(result: dict, cross_items: list, emit):
             'level': 'error',
             'category': '附表3↔隐患要素分布',
             'desc': f"附表3有 {len(fb3_only)} 条记录在隐患要素分布L.shp中不存在",
-            'detail': list(fb3_only)[:5]
+            'detail': list(fb3_only)
         })
 
     yh_only = yh_codes - fb2_codes - fb3_codes
@@ -379,7 +386,7 @@ def _cross_fubiao_vs_spatial(result: dict, cross_items: list, emit):
             'level': 'warning',
             'category': '隐患要素分布↔附表2/3',
             'desc': f"隐患要素分布L.shp有 {len(yh_only)} 条记录在附表2/3中不存在",
-            'detail': list(yh_only)[:5]
+            'detail': list(yh_only)
         })
 
 
@@ -468,72 +475,187 @@ def _cross_section_vs_spatial(result: dict, cross_items: list, emit):
     except Exception:
         all_sections = {}
 
-    section_cs_in_db = {}
+    db_sections = {}
     for key, sec in all_sections.items():
-        name = sec.get('name', '')
-        sheet_name = sec.get('sheet_name', '')
-        cs_match = re.search(r'(CS\d{3})', name.upper())
-        if cs_match:
-            cs_code = cs_match.group(1)
-            river_code = ''
-            rc_match = re.match(r'^([A-Za-z]+\d+l\d+)', sheet_name)
-            if rc_match:
-                river_code = rc_match.group(1)
-            section_cs_in_db[cs_code] = {
+        sheet_name = str(sec.get('sheet_name', '')).strip()
+        name = str(sec.get('name', '')).strip()
+        if sheet_name:
+            db_sections[sheet_name] = {
                 'name': name,
                 'sheet_name': sheet_name,
-                'river_code': river_code,
             }
 
-    duanmian_cs_in_shp = {}
+    shp_sections = {}
     for rec in duanmian_records:
+        raw = rec.get('编号', '')
+        bh = str(int(raw)) if isinstance(raw, (int, float)) else str(raw).strip()
         name = str(rec.get('名称', '')).strip()
-        rc = str(rec.get('河流代码', '')).strip()
-        cs_match = re.search(r'(CS\d{3})', name.upper())
-        if cs_match:
-            cs_code = cs_match.group(1)
-            duanmian_cs_in_shp[cs_code] = {
+        if bh:
+            shp_sections[bh] = {
                 'name': name,
-                'river_code': rc,
+                'bianhao': bh,
             }
 
-    db_cs_set = set(section_cs_in_db.keys())
-    shp_cs_set = set(duanmian_cs_in_shp.keys())
+    db_keys = set(db_sections.keys())
+    shp_keys = set(shp_sections.keys())
 
-    only_in_db = db_cs_set - shp_cs_set
+    only_in_db = db_keys - shp_keys
     if only_in_db:
+        db_detail = []
+        for k in sorted(only_in_db):
+            info = db_sections.get(k, {})
+            label = f"{k} ({info.get('name', '')})"
+            db_detail.append(label)
         cross_items.append({
             'level': 'warning',
             'category': '断面测量↔断面平面位置',
-            'desc': f"断面测量表中有 {len(only_in_db)} 个断面(CS编号)在断面平面位置L.shp中不存在",
-            'detail': list(only_in_db)[:5]
+            'desc': f"断面测量表中有 {len(only_in_db)} 个断面编码在断面平面位置L.shp中不存在",
+            'detail': db_detail
         })
 
-    only_in_shp = shp_cs_set - db_cs_set
+    only_in_shp = shp_keys - db_keys
     if only_in_shp:
+        shp_detail = []
+        for k in sorted(only_in_shp):
+            info = shp_sections.get(k, {})
+            label = f"{k} ({info.get('name', '')})"
+            shp_detail.append(label)
         cross_items.append({
             'level': 'warning',
             'category': '断面测量↔断面平面位置',
-            'desc': f"断面平面位置L.shp中有 {len(only_in_shp)} 个断面(CS编号)在测量表中不存在",
-            'detail': list(only_in_shp)[:5]
+            'desc': f"断面平面位置L.shp中有 {len(only_in_shp)} 个断面编码在测量表中不存在",
+            'detail': shp_detail
         })
 
-    common_cs = db_cs_set & shp_cs_set
-    code_mismatch = []
-    for cs_code in common_cs:
-        db_rc = section_cs_in_db[cs_code].get('river_code', '')
-        shp_rc = duanmian_cs_in_shp[cs_code].get('river_code', '')
-        if db_rc and shp_rc and db_rc.upper() != shp_rc.upper():
-            code_mismatch.append(cs_code)
-    if code_mismatch:
-        cross_items.append({
-            'level': 'error',
-            'category': '断面测量↔断面平面位置',
-            'desc': f"有 {len(code_mismatch)} 个断面的河流代码在测量表与空间数据中不一致",
-            'detail': code_mismatch[:5]
-        })
+    common_keys = db_keys & shp_keys
 
-    emit("cross", f"断面交叉检查: 测量表{len(db_cs_set)}个CS, SHP{len(shp_cs_set)}个CS, 共同{len(common_cs)}个")
+    emit("cross", f"断面交叉检查: 测量表{len(db_keys)}个, SHP{len(shp_keys)}个, 共同{len(common_keys)}个")
+
+
+def _cross_measure_vs_spatial(result: dict, cross_items: list, emit):
+    """交叉检查: 测量数据Excel文件名与空间数据(防治对象/隐患要素)图层校验"""
+    emit("cross", "检查测量数据与防治对象/隐患要素图层...")
+
+    fangzhi_records = result['spatial_check'].get('fangzhi', [])
+    yinhuan_records = result['spatial_check'].get('yinhuan', [])
+
+    subfolder = result.get('_subfolder', '')
+
+    measure_dir = None
+    for root, dirs, files in os.walk(subfolder):
+        for d in dirs:
+            if d == '测量数据':
+                candidate = os.path.join(root, d)
+                if os.path.isdir(candidate):
+                    measure_dir = candidate
+                    break
+        if measure_dir:
+            break
+
+    if not measure_dir:
+        return
+
+    fz_codes_in_shp = {}
+    for rec in fangzhi_records:
+        raw = rec.get('代码', '')
+        code = str(int(raw)) if isinstance(raw, (int, float)) else str(raw).strip()
+        name = str(rec.get('名称', '')).strip()
+        if code:
+            fz_codes_in_shp[code] = name
+
+    yh_codes_in_shp = {}
+    for rec in yinhuan_records:
+        raw = rec.get('编号', '')
+        bh = str(int(raw)) if isinstance(raw, (int, float)) else str(raw).strip()
+        name = str(rec.get('名称', '')).strip()
+        if bh:
+            yh_codes_in_shp[bh] = name
+
+    fz_measure_codes = {}
+    yh_measure_codes = {}
+
+    for folder_name in os.listdir(measure_dir):
+        folder_path = os.path.join(measure_dir, folder_name)
+        if not os.path.isdir(folder_path):
+            continue
+
+        is_fangzhi = '防治对象' in folder_name
+        is_yinhuan = '跨沟道路' in folder_name or '桥涵' in folder_name or '沟滩占地' in folder_name
+
+        if not is_fangzhi and not is_yinhuan:
+            continue
+
+        for fname in os.listdir(folder_path):
+            if not fname.endswith('.xlsx'):
+                continue
+            name_no_ext = fname[:-5]
+            parts = name_no_ext.split('_')
+            if len(parts) < 3:
+                continue
+
+            code_part = parts[0]
+            measure_name = parts[-1]
+
+            if is_fangzhi:
+                if code_part not in fz_measure_codes:
+                    fz_measure_codes[code_part] = measure_name
+            elif is_yinhuan:
+                if code_part not in yh_measure_codes:
+                    yh_measure_codes[code_part] = measure_name
+
+    # --- 防治对象 vs 测量数据 ---
+    if fz_codes_in_shp or fz_measure_codes:
+        fz_only_shp = set(fz_codes_in_shp.keys()) - set(fz_measure_codes.keys())
+        if fz_only_shp:
+            detail = []
+            for code in sorted(fz_only_shp):
+                detail.append(f"{code} ({fz_codes_in_shp.get(code, '')})")
+            cross_items.append({
+                'level': 'warning',
+                'category': '防治对象图层↔测量数据',
+                'desc': f"防治对象分布P.shp中有 {len(fz_only_shp)} 条记录无对应防治对象测量数据",
+                'detail': detail
+            })
+
+        fz_only_measure = set(fz_measure_codes.keys()) - set(fz_codes_in_shp.keys())
+        if fz_only_measure:
+            detail = []
+            for code in sorted(fz_only_measure):
+                detail.append(f"{code} ({fz_measure_codes.get(code, '')})")
+            cross_items.append({
+                'level': 'warning',
+                'category': '防治对象图层↔测量数据',
+                'desc': f"防治对象测量数据中有 {len(fz_only_measure)} 条记录在防治对象分布P.shp中不存在",
+                'detail': detail
+            })
+
+    # --- 隐患要素 vs 测量数据 ---
+    if yh_codes_in_shp or yh_measure_codes:
+        yh_only_shp = set(yh_codes_in_shp.keys()) - set(yh_measure_codes.keys())
+        if yh_only_shp:
+            detail = []
+            for code in sorted(yh_only_shp):
+                detail.append(f"{code} ({yh_codes_in_shp.get(code, '')})")
+            cross_items.append({
+                'level': 'warning',
+                'category': '隐患要素图层↔测量数据',
+                'desc': f"隐患要素分布L.shp中有 {len(yh_only_shp)} 条记录无对应测量数据(跨沟道路和桥涵/沟滩占地)",
+                'detail': detail
+            })
+
+        yh_only_measure = set(yh_measure_codes.keys()) - set(yh_codes_in_shp.keys())
+        if yh_only_measure:
+            detail = []
+            for code in sorted(yh_only_measure):
+                detail.append(f"{code} ({yh_measure_codes.get(code, '')})")
+            cross_items.append({
+                'level': 'warning',
+                'category': '隐患要素图层↔测量数据',
+                'desc': f"测量数据(跨沟道路和桥涵/沟滩占地)中有 {len(yh_only_measure)} 条记录在隐患要素分布L.shp中不存在",
+                'detail': detail
+            })
+
+    emit("cross", f"测量数据交叉检查: 防治对象SHP{len(fz_codes_in_shp)}个/测量{len(fz_measure_codes)}个, 隐患要素SHP{len(yh_codes_in_shp)}个/测量{len(yh_measure_codes)}个")
 
 
 def _cross_yinhuan_vs_photo(result: dict, cross_items: list, emit):
@@ -548,7 +670,8 @@ def _cross_yinhuan_vs_photo(result: dict, cross_items: list, emit):
 
     yinhuan_codes = set()
     for rec in yinhuan_records:
-        bh = str(rec.get('编号', '')).strip()
+        raw = rec.get('编号', '')
+        bh = str(int(raw)) if isinstance(raw, (int, float)) else str(raw).strip()
         if bh:
             yinhuan_codes.add(bh.upper())
 
@@ -578,7 +701,7 @@ def _cross_yinhuan_vs_photo(result: dict, cross_items: list, emit):
             'level': 'warning',
             'category': '隐患要素分布↔照片',
             'desc': f"隐患要素分布L.shp中有 {len(yinhuan_no_photo)} 条记录无对应照片",
-            'detail': yinhuan_no_photo[:5]
+            'detail': yinhuan_no_photo
         })
 
     yinhuan_river_codes = set()

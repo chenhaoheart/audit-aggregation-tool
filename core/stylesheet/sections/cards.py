@@ -531,7 +531,6 @@ QFrame#crossIssueItem {{
     background: {theme['surface_1']};
     border: 1px solid {theme['border_subtle']};
     border-radius: 8px;
-    border-left: 3px solid {theme.get('error_text', '#ef4444')};
 }}
 
 QFrame#crossIssueItem:hover {{
@@ -548,7 +547,7 @@ QFrame#issueIndicator {{
 }}
 
 QLabel#issueCategoryBadge {{
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 600;
     color: {theme['accent_color']};
     padding: 2px 8px;
@@ -557,20 +556,20 @@ QLabel#issueCategoryBadge {{
 }}
 
 QLabel#issueDescText {{
-    font-size: 11px;
+    font-size: 13px;
     color: {theme['text_primary']};
     line-height: 1.3;
 }}
 
 QLabel#issueDetailText {{
-    font-size: 9px;
+    font-size: 11px;
     color: {theme['text_muted']};
     margin-top: 2px;
     line-height: 1.3;
 }}
 
 QLabel#issueChevron {{
-    font-size: 9px;
+    font-size: 11px;
     color: {theme['text_muted']};
 }}
 
@@ -584,7 +583,7 @@ QLabel#crossErrorCount {{
 }}
 
 QLabel#crossWarnCount {{
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     color: {theme.get('warning_text', '#f59e0b')};
     padding: 2px 10px;
@@ -595,6 +594,16 @@ QLabel#crossWarnCount {{
 QScrollArea#crossItemsScrollArea {{
     background: transparent;
     border: none;
+}}
+
+QScrollArea#crossTimelineArea {{
+    background: {theme['surface_1']};
+    border: 1px solid {theme['border_subtle']};
+    border-radius: 8px;
+}}
+
+QWidget#crossTimelineContent {{
+    background: transparent;
 }}
 
 /* ========== Dashboard 横向滑动卡片 ========== */

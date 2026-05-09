@@ -8,6 +8,9 @@ import os
 
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 
+# 屏蔽 Chromium Direct Composition 无害警告
+os.environ['QT_LOGGING_RULES'] = 'qt.qpa.gl.composition_support*=false'
+
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
 from ui.main_window import MainWindow

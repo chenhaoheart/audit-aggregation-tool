@@ -74,6 +74,8 @@ class DashboardController(QObject):
                     f.write(report_html)
                 QMessageBox.information(self._parent_widget, "成功", f"报告已保存至:\n{save_path}")
                 self._log(f"报告已生成: {save_path}")
+                import os
+                os.startfile(save_path)
                 self.report_generated.emit(save_path)
             except Exception as e:
                 QMessageBox.critical(self._parent_widget, "失败", f"保存报告失败:\n{e}")
