@@ -34,14 +34,15 @@ class _CrossTimelineContent(QWidget):
 
         line_x = 32
         line_top = 20
-        line_bottom = self.height() - 20
-
-        pen = QPen(QColor(theme.get('border_subtle', '#e5e7eb')), 2)
-        painter.setPen(pen)
-        painter.drawLine(line_x, line_top, line_x, line_bottom)
 
         error_color = QColor(theme.get('error_text', '#ef4444'))
         warn_color = QColor(theme.get('warning_text', '#f59e0b'))
+
+        last_y = line_top + (len(self._items) - 1) * 46
+
+        pen = QPen(QColor(theme.get('border_subtle', '#e5e7eb')), 2)
+        painter.setPen(pen)
+        painter.drawLine(line_x, line_top, line_x, last_y)
 
         y = line_top
         for item in self._items:
